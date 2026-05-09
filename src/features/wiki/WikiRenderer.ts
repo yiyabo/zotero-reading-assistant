@@ -640,8 +640,8 @@ function styles(ref: string): string {
     .${ref}-wiki-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; align-items:center; }
     .${ref}-wiki-action-btn { border:1px solid rgba(139,92,246,.22); border-radius:999px; padding:7px 12px; background:rgba(255,255,255,.86); color:#6d28d9; font-weight:800; font-size:12px; text-decoration:none !important; box-shadow:0 6px 16px rgba(139,92,246,.08); transition:transform .12s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease; }
     .${ref}-wiki-action-btn:hover { transform:translateY(-1px); border-color:rgba(139,92,246,.38); background:#fff; box-shadow:0 10px 22px rgba(139,92,246,.14); }
-    .${ref}-wiki-action-primary { background:linear-gradient(135deg,#7c3aed,#8b5cf6,#a855f7); color:#fff; border-color:transparent; box-shadow:0 12px 26px rgba(139,92,246,.24); }
-    .${ref}-wiki-action-primary:hover { background:linear-gradient(135deg,#6d28d9,#8b5cf6,#9333ea); color:#fff; box-shadow:0 14px 30px rgba(139,92,246,.30); }
+    .${ref}-wiki-action-primary { background:rgba(255,255,255,.86); color:#6d28d9; border-color:rgba(139,92,246,.22); box-shadow:0 6px 16px rgba(139,92,246,.08); }
+    .${ref}-wiki-action-primary:hover { background:#fff; color:#7c3aed; border-color:rgba(139,92,246,.38); box-shadow:0 10px 22px rgba(139,92,246,.14); }
     .${ref}-wiki-body { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:320px minmax(0,1fr); gap:0; }
     .${ref}-wiki-sidebar { min-height:0; overflow:auto; padding:18px; border-right:1px solid rgba(139,92,246,.14); background:rgba(255,255,255,.58); }
     .${ref}-wiki-side-group { margin-bottom:18px; }
