@@ -18,6 +18,7 @@
  */
 import { config } from "../../../package.json";
 import { createHTMLElement, t } from "../../sidebar/domUtils";
+import { openKnowledgeWikiWindow } from "../wiki";
 import { buildGraphCanvas, type GraphCanvasHandle, type ViewMode } from "./GraphCanvas";
 import { enqueueRetry } from "./KGPipeline";
 import { kgStore, type KGConceptNode, type KGEdge, type KGEdgeRole, type KGEdgeType, type KGPaperState, type KGState, type PaperReference, type ReferencedItem } from "./KGStore";
@@ -485,6 +486,15 @@ function buildDetailContent(
   openBtn.addEventListener("click", () => openItemInZotero(paper.itemID));
   actionRow.appendChild(openBtn);
 
+  const wikiBtn = createHTMLElement(doc, "button", `${ref}-kg-action-btn`);
+  wikiBtn.type = "button";
+  wikiBtn.innerHTML = `${ICON.book}<span>Wiki</span>`;
+  wikiBtn.addEventListener("click", () => {
+    const win = doc.defaultView || ((Services as any).wm.getMostRecentWindow("navigator:browser") as Window | null);
+    if (win) openKnowledgeWikiWindow(win, { type: "paper", itemKey: paper.itemKey });
+  });
+  actionRow.appendChild(wikiBtn);
+
   // "在 PDF 中阅读": only show when the paper actually has a PDF attachment.
   // Looking it up is cheap (Zotero caches getAttachments) so we do it during
   // every detail-panel build.
@@ -552,6 +562,17 @@ function buildConceptDetailContent(
   const metaEl = createHTMLElement(doc, "div", `${ref}-kg-detail-meta`);
   metaEl.textContent = `概念节点 · ${conceptTypeLabel(concept.type)}`;
   wrap.appendChild(metaEl);
+
+  const actionRow = createHTMLElement(doc, "div", `${ref}-kg-detail-actions`);
+  const wikiBtn = createHTMLElement(doc, "button", `${ref}-kg-action-btn`);
+  wikiBtn.type = "button";
+  wikiBtn.innerHTML = `${ICON.book}<span>Wiki</span>`;
+  wikiBtn.addEventListener("click", () => {
+    const win = doc.defaultView || ((Services as any).wm.getMostRecentWindow("navigator:browser") as Window | null);
+    if (win) openKnowledgeWikiWindow(win, { type: "concept", conceptId: concept.id });
+  });
+  actionRow.appendChild(wikiBtn);
+  wrap.appendChild(actionRow);
 
   const panel = createHTMLElement(doc, "div", `${ref}-kg-summary-panel`);
   appendConceptBlock(doc, ref, panel, "类型", conceptTypeLabel(concept.type));
