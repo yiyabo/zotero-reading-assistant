@@ -918,43 +918,45 @@ export function buildSidebarStyles(addonRef: string): string {
 
       .${addonRef}-scroll-bottom-btn {
         position: absolute;
-        bottom: calc(var(--readingassistant-input-dock-height, 124px) + 18px);
-        right: 20px;
+        bottom: calc(var(--readingassistant-input-dock-height, 124px) + 54px);
+        left: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 32px;
-        height: 32px;
-        border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-primary));
+        width: 28px;
+        height: 28px;
+        border: 1px solid color-mix(in srgb, var(--ra-secondary) 30%, transparent);
         border-radius: 50%;
         background:
-          linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.94)),
-          var(--ra-bg);
+          linear-gradient(180deg, rgba(255,255,255,0.72), rgba(245,243,255,0.52));
         color: var(--ra-secondary);
         cursor: pointer;
         opacity: 0;
         pointer-events: none;
-        transform: translateY(8px);
-        transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, color 0.15s ease;
-        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.18);
+        transform: translate(-50%, 6px);
+        transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.15s ease;
+        box-shadow: 0 8px 20px rgba(139, 92, 246, 0.12);
+        backdrop-filter: blur(10px);
         z-index: 10;
       }
 
       .${addonRef}-scroll-bottom-btn.visible {
-        opacity: 1;
+        opacity: 0.82;
         pointer-events: auto;
-        transform: translateY(0);
+        transform: translate(-50%, 0);
       }
 
       .${addonRef}-scroll-bottom-btn:hover {
-        color: #fff;
-        background: var(--ra-gradient);
-        border-color: transparent;
-        box-shadow: 0 8px 22px rgba(139, 92, 246, 0.35);
+        opacity: 1;
+        color: var(--ra-secondary);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.92), rgba(245,243,255,0.78));
+        border-color: color-mix(in srgb, var(--ra-secondary) 44%, transparent);
+        box-shadow: 0 10px 24px rgba(139, 92, 246, 0.20);
       }
 
       .${addonRef}-scroll-bottom-btn:active {
-        transform: scale(0.92);
+        transform: translate(-50%, 0) scale(0.94);
       }
 
       math {

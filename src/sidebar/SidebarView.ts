@@ -504,7 +504,21 @@ export default class SidebarView {
     const scrollBtn = createHTMLElement(doc, "button", `${config.addonRef}-scroll-bottom-btn`);
     scrollBtn.title = t("scroll-bottom");
     scrollBtn.setAttribute("aria-label", t("scroll-bottom"));
-    scrollBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><path d="M12 5v14"/><path d="M6 13l6 6 6-6"/></svg>`;
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const scrollIcon = doc.createElementNS(SVG_NS, "svg");
+    scrollIcon.setAttribute("viewBox", "0 0 24 24");
+    scrollIcon.setAttribute("fill", "none");
+    scrollIcon.setAttribute("stroke", "currentColor");
+    scrollIcon.setAttribute("stroke-width", "2.4");
+    scrollIcon.setAttribute("stroke-linecap", "round");
+    scrollIcon.setAttribute("stroke-linejoin", "round");
+    scrollIcon.setAttribute("width", "15");
+    scrollIcon.setAttribute("height", "15");
+    scrollIcon.setAttribute("aria-hidden", "true");
+    const scrollPath = doc.createElementNS(SVG_NS, "path");
+    scrollPath.setAttribute("d", "m7 10 5 5 5-5");
+    scrollIcon.appendChild(scrollPath);
+    scrollBtn.appendChild(scrollIcon);
     scrollBtn.addEventListener("click", () => {
       this.userScrolledUp = false;
       this.scrollMessagesToBottom();
