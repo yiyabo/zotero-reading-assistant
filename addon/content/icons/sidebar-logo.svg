@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Reading Assistant">
+  <defs>
+    <linearGradient id="raSidebarLogoGradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="0.58" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+  </defs>
+  <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="url(#raSidebarLogoGradient)"/>
+  <path d="M6.8 8.2h4.1c1.25 0 2.1.85 2.1 2.1v6.2c0-1.15-.85-1.85-2.1-1.85H6.8V8.2Z" fill="#FFFFFF" fill-opacity="0.92"/>
+  <path d="M17.2 8.2h-4.1c-1.25 0-2.1.85-2.1 2.1v6.2c0-1.15.85-1.85 2.1-1.85h4.1V8.2Z" fill="#FFFFFF" fill-opacity="0.74"/>
+  <path d="M7.9 10.35h2.45M7.9 12.25h2.45M13.65 10.35h2.45M13.65 12.25h2.45" stroke="#7C3AED" stroke-width="0.75" stroke-linecap="round" opacity="0.72"/>
+  <circle cx="17.8" cy="6.4" r="2.15" fill="#FFFFFF"/>
+  <path d="M17.8 5.2v2.4M16.6 6.4H19" stroke="#8B5CF6" stroke-width="0.85" stroke-linecap="round"/>
+</svg>
