@@ -5,6 +5,12 @@ import {
   initKnowledgeGraph,
   shutdownKnowledgeGraph,
 } from "./features/knowledge-graph";
+import {
+  attachToMainWindow as attachWikiToWindow,
+  detachFromMainWindow as detachWikiFromWindow,
+  initKnowledgeWiki,
+  shutdownKnowledgeWiki,
+} from "./features/wiki";
 import { resetLLMManager } from "./modules/llm/LLMManager";
 import { initLocale } from "./modules/utils/locale";
 import { PrefKeys } from "./modules/utils/prefs";
@@ -80,6 +86,7 @@ async function onStartup() {
   await registerPreferencePane();
   registerPreferenceObservers();
   initKnowledgeGraph();
+  initKnowledgeWiki();
 }
 
 async function onMainWindowLoad(win: Window) {
@@ -93,6 +100,11 @@ async function onMainWindowLoad(win: Window) {
   } catch (e: any) {
     Zotero.logError(new Error("[RA] KG attach error: " + e.message));
   }
+  try {
+    attachWikiToWindow(win);
+  } catch (e: any) {
+    Zotero.logError(new Error("[RA] Wiki attach error: " + e.message));
+  }
 }
 
 async function onMainWindowUnload(win: Window) {
@@ -102,11 +114,15 @@ async function onMainWindowUnload(win: Window) {
   try {
     detachKGFromWindow(win);
   } catch (_) {}
+  try {
+    detachWikiFromWindow(win);
+  } catch (_) {}
 }
 
 function onShutdown(): void {
   unregisterPreferenceObservers();
   try { shutdownKnowledgeGraph(); } catch (_) {}
+  try { shutdownKnowledgeWiki(); } catch (_) {}
 
   if (addon.data.preferencePaneID && (Zotero as any).PreferencePanes?.unregister) {
     try {

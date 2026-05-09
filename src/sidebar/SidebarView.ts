@@ -1,6 +1,7 @@
 import { config } from "../../package.json";
 import { kgStore } from "../features/knowledge-graph/KGStore";
 import { openKnowledgeGraphWindow } from "../features/knowledge-graph";
+import { openKnowledgeWikiWindow } from "../features/wiki";
 import { getLLMManager } from "../modules/llm/LLMManager";
 import { Message, MessageContentPart } from "../modules/llm/types";
 import { getString } from "../modules/utils/locale";
@@ -565,6 +566,22 @@ export default class SidebarView {
     addBtn.innerHTML = `<span class="${config.addonRef}-context-bar-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span><span class="${config.addonRef}-context-bar-label">${t("kg-sidebar-add-btn")}</span>`;
     addBtn.addEventListener("click", () => void this.addCurrentPaperToKG());
 
+    const wikiBtn = createHTMLElement(doc, "button", `${config.addonRef}-context-bar-btn`);
+    wikiBtn.type = "button";
+    wikiBtn.classList.add(`${config.addonRef}-context-bar-wiki`);
+    wikiBtn.innerHTML = `<span class="${config.addonRef}-context-bar-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21V5.5Z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span><span class="${config.addonRef}-context-bar-label">${t("wiki-sidebar-open-btn")}</span>`;
+    wikiBtn.title = t("wiki-sidebar-open-tip");
+    wikiBtn.addEventListener("click", () => {
+      try {
+        const win = doc.defaultView || (Services as any).wm.getMostRecentWindow("navigator:browser");
+        const regular = this.resolveRegularItem(this.currentItem);
+        const itemKey = regular?.key ? String(regular.key) : "";
+        if (win) openKnowledgeWikiWindow(win as Window, itemKey ? { type: "paper", itemKey } : { type: "home" });
+      } catch (e: any) {
+        _log("openKnowledgeWikiWindow failed: " + (e?.message || e));
+      }
+    });
+
     const openBtn = createHTMLElement(doc, "button", `${config.addonRef}-context-bar-btn`);
     openBtn.type = "button";
     openBtn.classList.add(`${config.addonRef}-context-bar-open`);
@@ -579,7 +596,7 @@ export default class SidebarView {
       }
     });
 
-    bar.append(addBtn, openBtn);
+    bar.append(addBtn, wikiBtn, openBtn);
 
     this.contextBarElement = bar;
     this.kgAddBtn = addBtn;

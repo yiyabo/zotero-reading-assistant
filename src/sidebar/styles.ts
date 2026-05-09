@@ -669,6 +669,7 @@ export function buildSidebarStyles(addonRef: string): string {
       .${addonRef}-context-bar {
         display: flex;
         flex: 0 0 auto;
+        flex-wrap: wrap;
         gap: 8px;
         margin: 0 0 8px 0;
         align-items: stretch;
@@ -720,6 +721,15 @@ export function buildSidebarStyles(addonRef: string): string {
         background: rgba(243, 244, 246, 0.7);
         color: #9ca3af;
         border-color: rgba(229, 231, 235, 0.9);
+      }
+      .${addonRef}-context-bar-wiki {
+        color: #6D28D9;
+        background: rgba(255, 255, 255, 0.92);
+        border-color: rgba(139, 92, 246, 0.28);
+      }
+      .${addonRef}-context-bar-wiki:hover:not(:disabled) {
+        background: linear-gradient(180deg, #FFFFFF, #F5F3FF);
+        border-color: rgba(139, 92, 246, 0.52);
       }
       .${addonRef}-context-bar-icon {
         font-size: 13px;
