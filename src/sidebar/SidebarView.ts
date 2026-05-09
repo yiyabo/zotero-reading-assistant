@@ -148,14 +148,11 @@ export default class SidebarView {
         pluginID: config.addonID || "reading-assistant@zotero-llm.org",
         header: {
           l10nID: `${config.addonRef}-chat-header`,
-          // Zotero's sidenav/header expect a 16x16 icon (see zotero-types
-          // Icon16px). Passing the 96x96 favicon caused the host's <img>
-          // sizing to stretch it into a tall purple rectangle.
-          icon: `chrome://${config.addonRef}/content/icons/favicon-16.png`,
+          icon: `chrome://${config.addonRef}/content/icons/logo.png`,
         },
         sidenav: {
           l10nID: `${config.addonRef}-chat-sidenav`,
-          icon: `chrome://${config.addonRef}/content/icons/favicon-16.png`,
+          icon: `chrome://${config.addonRef}/content/icons/logo.png`,
           orderable: true,
         },
         onInit: ({ item }: { item: any }) => {
