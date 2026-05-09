@@ -1,6 +1,6 @@
 # Zotero Reading Assistant
 
-![Zotero Reading Assistant logo](addon/content/icons/logo-32.png)
+![Zotero Reading Assistant logo](addon/content/icons/logo.png)
 
 紫白色 Zotero 论文阅读助手：在 Zotero 侧边栏中直接和论文、PDF、笔记与知识图谱对话。
 

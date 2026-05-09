@@ -148,11 +148,11 @@ export default class SidebarView {
         pluginID: config.addonID || "reading-assistant@zotero-llm.org",
         header: {
           l10nID: `${config.addonRef}-chat-header`,
-          icon: `chrome://${config.addonRef}/content/icons/logo-16.png`,
+          icon: `chrome://${config.addonRef}/content/icons/logo-64.png`,
         },
         sidenav: {
           l10nID: `${config.addonRef}-chat-sidenav`,
-          icon: `chrome://${config.addonRef}/content/icons/logo-16.png`,
+          icon: `chrome://${config.addonRef}/content/icons/logo-64.png`,
           orderable: true,
         },
         onInit: ({ item }: { item: any }) => {
