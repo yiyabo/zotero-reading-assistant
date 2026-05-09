@@ -34,14 +34,14 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-panel {
-        --ra-primary: #6366F1;
-        --ra-primary-soft: #818CF8;
-        --ra-secondary: #8B5CF6;
+        --ra-primary: #8B5CF6;
+        --ra-primary-soft: #A78BFA;
+        --ra-secondary: #7C3AED;
         --ra-accent: #A855F7;
-        --ra-gradient: linear-gradient(135deg, #6366F1 0%, #8B5CF6 55%, #A855F7 100%);
-        --ra-gradient-soft: linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(168,85,247,0.10) 100%);
+        --ra-gradient: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A855F7 100%);
+        --ra-gradient-soft: linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(168,85,247,0.10) 100%);
         --ra-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-        --ra-shadow-md: 0 4px 12px rgba(99, 102, 241, 0.18);
+        --ra-shadow-md: 0 4px 12px rgba(139, 92, 246, 0.18);
         --ra-shadow-lg: 0 10px 28px rgba(139, 92, 246, 0.22);
         --ra-radius: 16px;
         --ra-radius-lg: 22px;
@@ -77,7 +77,7 @@ export function buildSidebarStyles(addonRef: string): string {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
         font-size: 13px;
         background:
-          radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+          radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 45%),
           radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.07) 0%, transparent 50%),
           var(--ra-bg);
       }
@@ -482,7 +482,7 @@ export function buildSidebarStyles(addonRef: string): string {
         height: 12px;
         border-radius: 4px;
         background: var(--ra-gradient);
-        box-shadow: 0 1px 3px rgba(99, 102, 241, 0.4);
+        box-shadow: 0 1px 3px rgba(139, 92, 246, 0.4);
       }
 
       .${addonRef}-message.user .${addonRef}-message-label {
@@ -514,7 +514,7 @@ export function buildSidebarStyles(addonRef: string): string {
         border: none;
         border-radius: 16px 16px 4px 16px;
         background: var(--ra-gradient);
-        box-shadow: 0 6px 16px rgba(99, 102, 241, 0.28);
+        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.28);
       }
 
       .${addonRef}-message.user .${addonRef}-message-content a {
@@ -708,13 +708,13 @@ export function buildSidebarStyles(addonRef: string): string {
         flex: 1 1 auto;
         min-width: 0;
         justify-content: center;
-        color: #4338CA;
-        background: linear-gradient(180deg, #EEF2FF, #E0E7FF);
-        border-color: rgba(99, 102, 241, 0.35);
+        color: #6D28D9;
+        background: linear-gradient(180deg, #F5F3FF, #EDE9FE);
+        border-color: rgba(139, 92, 246, 0.35);
       }
       .${addonRef}-context-bar-add:hover:not(:disabled) {
-        background: linear-gradient(180deg, #E0E7FF, #C7D2FE);
-        border-color: rgba(99, 102, 241, 0.55);
+        background: linear-gradient(180deg, #EDE9FE, #DDD6FE);
+        border-color: rgba(139, 92, 246, 0.55);
       }
       .${addonRef}-context-bar-add.${addonRef}-context-bar-btn-disabled {
         background: rgba(243, 244, 246, 0.7);
@@ -750,7 +750,7 @@ export function buildSidebarStyles(addonRef: string): string {
           linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92)),
           var(--ra-bg);
         box-shadow:
-          0 12px 28px rgba(99, 102, 241, 0.12),
+          0 12px 28px rgba(139, 92, 246, 0.12),
           inset 0 1px 0 rgba(255, 255, 255, 0.72);
       }
 
@@ -877,7 +877,7 @@ export function buildSidebarStyles(addonRef: string): string {
         color: #fff;
         cursor: pointer;
         transition: transform 0.12s ease, box-shadow 0.18s ease, filter 0.2s ease;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.32);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.18);
       }
 
       .${addonRef}-send-btn .${addonRef}-send-icon {
@@ -936,7 +936,7 @@ export function buildSidebarStyles(addonRef: string): string {
         pointer-events: none;
         transform: translateY(8px);
         transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, color 0.15s ease;
-        box-shadow: 0 6px 16px rgba(99, 102, 241, 0.18);
+        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.18);
         z-index: 10;
       }
 
@@ -1332,7 +1332,7 @@ export function buildSidebarStyles(addonRef: string): string {
           /* Make the ambient brand-tinted radial a touch brighter so it
              shows up against the dark background. */
           background:
-            radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+            radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.12) 0%, transparent 45%),
             radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.10) 0%, transparent 50%),
             var(--ra-bg);
         }
