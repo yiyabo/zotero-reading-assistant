@@ -881,7 +881,20 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-send-btn .${addonRef}-send-icon {
+        display: block;
+        width: 17px;
+        height: 17px;
+        color: #ffffff;
+        flex: 0 0 auto;
         transform: translate(-1px, 1px);
+      }
+
+      .${addonRef}-send-btn .${addonRef}-stop-icon {
+        display: block;
+        width: 14px;
+        height: 14px;
+        color: #ffffff;
+        flex: 0 0 auto;
       }
 
       .${addonRef}-send-btn:hover {
