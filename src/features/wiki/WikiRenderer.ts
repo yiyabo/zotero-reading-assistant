@@ -9,6 +9,7 @@ import {
   ReferencedItem,
   kgStore,
 } from "../knowledge-graph/KGStore";
+import { hasPdfAttachment, openItemInReader, openItemInZotero } from "./ZoteroOpeners";
 import { wikiStore } from "./WikiStore";
 import { WikiRoute } from "./WikiWindow";
 
@@ -447,7 +448,14 @@ function buildPaperPage(doc: Document, state: KGState, paper: KGPaperState, nav:
   chips.append(buildChip(doc, paper.status));
   const domainBtn = buildLinkButton(doc, domainOf(paper), () => nav.domain(domainOf(paper)), `${config.addonRef}-wiki-link-chip`);
   chips.appendChild(domainBtn);
-  heading.append(h, meta, chips);
+  const actions = createHTMLElement(doc, "div", `${config.addonRef}-wiki-actions`);
+  const openBtn = buildLinkButton(doc, "在 Zotero 中打开", () => openItemInZotero(paper.itemID), `${config.addonRef}-wiki-action-btn`);
+  actions.appendChild(openBtn);
+  if (hasPdfAttachment(paper.itemID)) {
+    const readPdfBtn = buildLinkButton(doc, "在 PDF 中阅读", () => void openItemInReader(paper.itemID), `${config.addonRef}-wiki-action-btn ${config.addonRef}-wiki-action-primary`);
+    actions.appendChild(readPdfBtn);
+  }
+  heading.append(h, meta, chips, actions);
   article.appendChild(heading);
 
   const overview = buildSection(doc, "概览");
@@ -629,6 +637,9 @@ function styles(ref: string): string {
     .${ref}-wiki-brand h1 { margin:0; font-size:20px; font-weight:800; color:#4c1d95; }
     .${ref}-wiki-brand p { margin:2px 0 0; color:#7c3aed; }
     .${ref}-wiki-home-btn { border:1px solid rgba(139,92,246,.28); border-radius:999px; padding:8px 14px; color:#6d28d9; background:#fff; cursor:pointer; font-weight:700; }
+    .${ref}-wiki-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .${ref}-wiki-action-btn { border:1px solid rgba(139,92,246,.24); border-radius:999px; padding:8px 12px; background:#fff; color:#6d28d9; font-weight:800; text-decoration:none !important; }
+    .${ref}-wiki-action-primary { background:linear-gradient(135deg,#7c3aed,#8b5cf6,#a855f7); color:#fff; border-color:transparent; box-shadow:0 10px 24px rgba(139,92,246,.24); }
     .${ref}-wiki-body { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:320px minmax(0,1fr); gap:0; }
     .${ref}-wiki-sidebar { min-height:0; overflow:auto; padding:18px; border-right:1px solid rgba(139,92,246,.14); background:rgba(255,255,255,.58); }
     .${ref}-wiki-side-group { margin-bottom:18px; }
