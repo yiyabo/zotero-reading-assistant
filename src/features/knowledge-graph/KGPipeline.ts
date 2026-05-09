@@ -448,8 +448,8 @@ type FullTextReadResult = {
 /**
  * Pull metadata + best-available text from a Zotero item. PDF content is
  * preferred and required whenever a PDF attachment exists: first use Zotero's
- * full-text index, then fall back to direct PDFWorker extraction. Abstract-only
- * analysis is kept only for rare library items with no PDF attachment.
+ * full-text index, then fall back to direct PDFWorker extraction. Abstract
+ * metadata is supplementary and only used alone when no PDF attachment exists.
  */
 async function extractPaperContent(item: any): Promise<ExtractedPaperContent> {
   const title = String(item.getDisplayTitle?.() || item.getField?.("title") || "");

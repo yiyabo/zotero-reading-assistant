@@ -763,9 +763,9 @@ function buildPaperRow(
     // Special case: deterministic "no content" failure. Retrying without
     // changing the underlying data fails again instantly, which is
     // confusing. Surface a button that opens the item in Zotero so the
-    // user can attach a PDF / fill in the abstract / let Zotero index
-    // the fulltext, before retrying.
-    const isNoContent = /no abstract|no.*full text|pdf attachment exists|pdf text extraction/i.test(paper.errorMsg);
+    // user can attach/replace the PDF or let Zotero rebuild full-text
+    // indexing before retrying.
+    const isNoContent = /no abstract|no pdf attachment|no.*full text|pdf attachment exists|pdf text extraction/i.test(paper.errorMsg);
     if (isNoContent) {
       const openBtn = createHTMLElement(doc, "button", `${ref}-kg-back-btn`);
       openBtn.type = "button";

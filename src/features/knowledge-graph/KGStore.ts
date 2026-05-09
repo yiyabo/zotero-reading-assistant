@@ -38,9 +38,9 @@ export type KGPaperStatus = "pending" | "analyzing" | "ready" | "error";
 /**
  * Per-paper analytical summary produced by stage-1 LLM analysis.
  *
- * Profile schema v9 collapses the older 26-field schema into 12 focused
- * fields with role-tagged reference lists. Older papers (profileVersion < 9)
- * are detected at startup and queued for re-analysis.
+ * Profile schema v10 is PDF-first and fills 12 focused fields with
+ * role-tagged reference lists. Older profiles are detected at startup and
+ * queued for re-analysis.
  */
 export type PaperSummary = {
   // ---- Description ----
@@ -67,8 +67,8 @@ export type PaperSummary = {
   limitations?: string[];
   keywords?: string[];
 
-  // ---- Legacy fields (profileVersion < 9). Kept optional for migration
-  // tolerance only; newly-emitted summaries do not populate them. ----
+  // ---- Legacy fields from pre-role-tagged schemas. Kept optional for
+  // migration tolerance only; newly-emitted summaries do not populate them. ----
   /** @deprecated Use `referencedMethods` (role="used"). */
   methods?: string[];
   /** @deprecated Use `referencedMethods` with role tags. */
