@@ -449,10 +449,10 @@ function buildPaperPage(doc: Document, state: KGState, paper: KGPaperState, nav:
   const domainBtn = buildLinkButton(doc, domainOf(paper), () => nav.domain(domainOf(paper)), `${config.addonRef}-wiki-link-chip`);
   chips.appendChild(domainBtn);
   const actions = createHTMLElement(doc, "div", `${config.addonRef}-wiki-actions`);
-  const openBtn = buildLinkButton(doc, "在 Zotero 中打开", () => openItemInZotero(paper.itemID), `${config.addonRef}-wiki-action-btn`);
+  const openBtn = buildLinkButton(doc, "↗ 打开 Zotero", () => openItemInZotero(paper.itemID), `${config.addonRef}-wiki-action-btn`);
   actions.appendChild(openBtn);
   if (hasPdfAttachment(paper.itemID)) {
-    const readPdfBtn = buildLinkButton(doc, "在 PDF 中阅读", () => void openItemInReader(paper.itemID), `${config.addonRef}-wiki-action-btn ${config.addonRef}-wiki-action-primary`);
+    const readPdfBtn = buildLinkButton(doc, "📖 阅读 PDF", () => void openItemInReader(paper.itemID), `${config.addonRef}-wiki-action-btn ${config.addonRef}-wiki-action-primary`);
     actions.appendChild(readPdfBtn);
   }
   heading.append(h, meta, chips, actions);
@@ -637,9 +637,11 @@ function styles(ref: string): string {
     .${ref}-wiki-brand h1 { margin:0; font-size:20px; font-weight:800; color:#4c1d95; }
     .${ref}-wiki-brand p { margin:2px 0 0; color:#7c3aed; }
     .${ref}-wiki-home-btn { border:1px solid rgba(139,92,246,.28); border-radius:999px; padding:8px 14px; color:#6d28d9; background:#fff; cursor:pointer; font-weight:700; }
-    .${ref}-wiki-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
-    .${ref}-wiki-action-btn { border:1px solid rgba(139,92,246,.24); border-radius:999px; padding:8px 12px; background:#fff; color:#6d28d9; font-weight:800; text-decoration:none !important; }
-    .${ref}-wiki-action-primary { background:linear-gradient(135deg,#7c3aed,#8b5cf6,#a855f7); color:#fff; border-color:transparent; box-shadow:0 10px 24px rgba(139,92,246,.24); }
+    .${ref}-wiki-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; align-items:center; }
+    .${ref}-wiki-action-btn { border:1px solid rgba(139,92,246,.22); border-radius:999px; padding:7px 12px; background:rgba(255,255,255,.86); color:#6d28d9; font-weight:800; font-size:12px; text-decoration:none !important; box-shadow:0 6px 16px rgba(139,92,246,.08); transition:transform .12s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease; }
+    .${ref}-wiki-action-btn:hover { transform:translateY(-1px); border-color:rgba(139,92,246,.38); background:#fff; box-shadow:0 10px 22px rgba(139,92,246,.14); }
+    .${ref}-wiki-action-primary { background:linear-gradient(135deg,#7c3aed,#8b5cf6,#a855f7); color:#fff; border-color:transparent; box-shadow:0 12px 26px rgba(139,92,246,.24); }
+    .${ref}-wiki-action-primary:hover { background:linear-gradient(135deg,#6d28d9,#8b5cf6,#9333ea); color:#fff; box-shadow:0 14px 30px rgba(139,92,246,.30); }
     .${ref}-wiki-body { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:320px minmax(0,1fr); gap:0; }
     .${ref}-wiki-sidebar { min-height:0; overflow:auto; padding:18px; border-right:1px solid rgba(139,92,246,.14); background:rgba(255,255,255,.58); }
     .${ref}-wiki-side-group { margin-bottom:18px; }
