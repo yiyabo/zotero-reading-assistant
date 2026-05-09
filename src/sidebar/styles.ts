@@ -731,6 +731,15 @@ export function buildSidebarStyles(addonRef: string): string {
         background: linear-gradient(180deg, #FFFFFF, #F5F3FF);
         border-color: rgba(139, 92, 246, 0.52);
       }
+      .${addonRef}-context-bar-open {
+        color: #6D28D9;
+        background: rgba(255, 255, 255, 0.92);
+        border-color: rgba(139, 92, 246, 0.28);
+      }
+      .${addonRef}-context-bar-open:hover:not(:disabled) {
+        background: linear-gradient(180deg, #FFFFFF, #F5F3FF);
+        border-color: rgba(139, 92, 246, 0.52);
+      }
       .${addonRef}-context-bar-icon {
         font-size: 13px;
         line-height: 1;
