@@ -1,0 +1,77 @@
+.readingassistant-preferences {
+  max-width: 760px;
+}
+
+.readingassistant-preferences groupbox {
+  margin-bottom: 18px;
+}
+
+.readingassistant-pref-description {
+  margin: 0 0 12px;
+  color: var(--fill-secondary, #5f6368);
+  line-height: 1.45;
+}
+
+.readingassistant-pref-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--fill-primary, #1f2937);
+  line-height: 1.5;
+}
+
+.readingassistant-pref-list li + li {
+  margin-top: 6px;
+}
+
+.readingassistant-pref-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.readingassistant-pref-grid.compact {
+  max-width: 420px;
+}
+
+.readingassistant-pref-row {
+  gap: 12px;
+}
+
+.readingassistant-pref-row > label {
+  min-width: 96px;
+}
+
+.readingassistant-pref-toggle {
+  align-items: flex-start;
+}
+
+.readingassistant-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+  color: var(--fill-primary, #1f2937);
+}
+
+.readingassistant-checkbox input {
+  margin: 0;
+}
+
+.readingassistant-pref-row html|input,
+.readingassistant-pref-row input {
+  flex: 1;
+  min-width: 240px;
+  height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 6px;
+  background: var(--material-background, #fff);
+  color: var(--fill-primary, #1f2937);
+  font: inherit;
+}
+
+.readingassistant-pref-row html|input:focus,
+.readingassistant-pref-row input:focus {
+  border-color: var(--accent-blue, #2563eb);
+  outline: none;
+}

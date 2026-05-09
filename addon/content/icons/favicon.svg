@@ -1,0 +1,70 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="55%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F5F3FF"/>
+    </linearGradient>
+    <linearGradient id="bubbleStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <filter id="bookShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.4" in="SourceAlpha"/>
+      <feOffset dy="2"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Rounded background -->
+  <rect width="96" height="96" rx="22" fill="url(#bg)"/>
+
+  <!-- Decorative sparkles -->
+  <g fill="#FFFFFF">
+    <circle cx="80" cy="78" r="1" opacity="0.55"/>
+    <circle cx="14" cy="20" r="1.2" opacity="0.55"/>
+    <path d="M82 68 l1 -3 l1 3 l3 1 l-3 1 l-1 3 l-1 -3 l-3 -1 z" opacity="0.6"/>
+    <path d="M14 70 l0.6 -1.6 l0.6 1.6 l1.6 0.6 l-1.6 0.6 l-0.6 1.6 l-0.6 -1.6 l-1.6 -0.6 z" opacity="0.5"/>
+  </g>
+
+  <!-- Open book -->
+  <g filter="url(#bookShadow)">
+    <!-- Left page -->
+    <path d="M16 32 Q16 30 18 30 L46 33 L46 73 L18 71 Q16 71 16 69 Z" fill="url(#page)"/>
+    <!-- Right page -->
+    <path d="M80 32 Q80 30 78 30 L50 33 L50 73 L78 71 Q80 71 80 69 Z" fill="url(#page)"/>
+    <!-- Spine highlight -->
+    <path d="M46 33 L48 31 L50 33 L50 73 L48 75 L46 73 Z" fill="#8B5CF6" opacity="0.22"/>
+  </g>
+
+  <!-- Text lines on left page -->
+  <g>
+    <rect x="21" y="40" width="20" height="2.2" rx="1.1" fill="#6366F1" opacity="0.55"/>
+    <rect x="21" y="46" width="16" height="2.2" rx="1.1" fill="#A855F7" opacity="0.5"/>
+    <rect x="21" y="52" width="18" height="2.2" rx="1.1" fill="#6366F1" opacity="0.45"/>
+    <rect x="21" y="58" width="13" height="2.2" rx="1.1" fill="#8B5CF6" opacity="0.4"/>
+  </g>
+  <!-- Text lines on right page -->
+  <g>
+    <rect x="55" y="40" width="20" height="2.2" rx="1.1" fill="#A855F7" opacity="0.55"/>
+    <rect x="55" y="46" width="22" height="2.2" rx="1.1" fill="#6366F1" opacity="0.5"/>
+    <rect x="55" y="52" width="17" height="2.2" rx="1.1" fill="#8B5CF6" opacity="0.45"/>
+    <rect x="55" y="58" width="14" height="2.2" rx="1.1" fill="#6366F1" opacity="0.4"/>
+  </g>
+
+  <!-- AI chat bubble (top-right badge) -->
+  <g transform="translate(56, 8)">
+    <!-- Bubble body -->
+    <path d="M4 2 L28 2 Q30 2 30 4 L30 16 Q30 18 28 18 L13 18 L8 23 L9 18 L4 18 Q2 18 2 16 L2 4 Q2 2 4 2 Z"
+          fill="#FFFFFF" stroke="url(#bubbleStroke)" stroke-width="1.4"/>
+    <!-- Three dots -->
+    <circle cx="10" cy="10" r="1.7" fill="#6366F1"/>
+    <circle cx="16" cy="10" r="1.7" fill="#8B5CF6"/>
+    <circle cx="22" cy="10" r="1.7" fill="#A855F7"/>
+  </g>
+</svg>

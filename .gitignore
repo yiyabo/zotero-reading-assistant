@@ -1,0 +1,9 @@
+**/builds
+node_modules
+package-lock.json
+zotero-cmd.json
+.env
+**/test
+*.log
+.DS_Store
+*.tsbuildinfo

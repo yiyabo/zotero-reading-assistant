@@ -1,0 +1,62 @@
+{
+  "name": "zotero-reading-assistant",
+  "version": "0.1.0",
+  "description": "AI-powered reading assistant sidebar for Zotero",
+  "config": {
+    "addonName": "Zotero Reading Assistant",
+    "addonID": "reading-assistant@zotero-llm.org",
+    "addonRef": "readingassistant",
+    "addonInstance": "ReadingAssistant",
+    "releasepage": "",
+    "updaterdf": "https://github.com/zotero-llm/zotero-reading-assistant/releases/download/release/update.json"
+  },
+  "main": "src/index.ts",
+  "scripts": {
+    "build-dev": "cross-env NODE_ENV=development node scripts/build.js",
+    "build-prod": "cross-env NODE_ENV=production node scripts/build.js",
+    "build": "concurrently -c auto npm:build-prod npm:tsc",
+    "tsc": "tsc --noEmit",
+    "start": "node scripts/start.js",
+    "stop": "node scripts/stop.js",
+    "restart": "npm run build-dev && npm run stop && npm run start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/zotero-reading-assistant.git"
+  },
+  "author": "Your Name",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/yourusername/zotero-reading-assistant/issues"
+  },
+  "homepage": "https://github.com/yourusername/zotero-reading-assistant",
+  "acknowledgments": "Based on zotero-gpt by MuiseDestiny (https://github.com/MuiseDestiny/zotero-gpt)",
+  "dependencies": {
+    "@dqbd/tiktoken": "^1.0.6",
+    "@types/katex": "^0.16.8",
+    "blueimp-md5": "^2.19.0",
+    "compute-cosine-similarity": "^1.0.0",
+    "crypto-js": "^4.1.1",
+    "cytoscape": "^3.33.3",
+    "cytoscape-fcose": "^2.2.0",
+    "highlight.js": "^11.7.0",
+    "katex": "^0.16.45",
+    "markdown-it": "^14.1.1",
+    "punycode": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.1.1",
+    "@types/markdown-it": "^12.2.3",
+    "@types/node": "^18.11.17",
+    "compressing": "^1.6.3",
+    "concurrently": "^8.0.1",
+    "cross-env": "^7.0.3",
+    "esbuild": "^0.25.0",
+    "minimist": "^1.2.7",
+    "replace-in-file": "^6.3.5",
+    "terser": "^5.46.2",
+    "typescript": "^5.0.4",
+    "uglify-js": "^3.19.3",
+    "zotero-types": "^1.0.12"
+  }
+}

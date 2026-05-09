@@ -1,0 +1,14 @@
+{
+  "git": {
+    "tagName": "v${version}",
+    "commitMessage": "Release v${version}"
+  },
+  "github": {
+    "release": true,
+    "releaseName": "v${version}",
+    "assets": ["builds/*.xpi"]
+  },
+  "npm": {
+    "publish": false
+  }
+}
