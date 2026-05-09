@@ -17,7 +17,7 @@
 - 实现了 QwenProvider 类
 - 支持流式响应
 - 配置信息：
-  - API Key: `sk-756b48f07d1f4a24a87a43e92111dcac`
+  - API Key: `<YOUR_API_KEY>`
   - API URL: `https://dashscope.aliyuncs.com/compatible-mode`
   - Model: `qwen-max`
 

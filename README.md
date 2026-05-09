@@ -1,119 +1,124 @@
 # Zotero Reading Assistant
 
-> AI-powered reading assistant sidebar for Zotero
+![Zotero Reading Assistant logo](addon/content/icons/logo-32.png)
 
-[![License](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE)
+紫白色 Zotero 论文阅读助手：在 Zotero 侧边栏中直接和论文、PDF、笔记与知识图谱对话。
 
-## 📖 Overview
+![Zotero Reading Assistant interface](docs/assets/introduce.png)
 
-Zotero Reading Assistant is a Zotero plugin that provides an AI-powered sidebar to assist with reading and understanding academic papers. Unlike popup-based tools, it offers a persistent sidebar interface for continuous reading support.
+## 简介
 
-## ✨ Features
+Zotero Reading Assistant 是一个面向学术阅读工作流的 Zotero 插件。它把 AI 对话、PDF 上下文读取、图像粘贴、Markdown/LaTeX 渲染和论文知识图谱整合到 Zotero 的右侧栏中，让你可以在不离开文献管理器的情况下完成论文理解、方法梳理和文献关系分析。
 
-- 🎯 **Persistent Sidebar**: Always-visible chat interface that doesn't interrupt your reading
-- 💬 **Conversational AI**: Natural dialogue with GPT models about your papers
-- 📄 **PDF Context Awareness**: Automatically understands the content you're reading
-- 🔍 **Smart Search**: Vector-based similarity search for relevant content
-- 📝 **Reading Assistance**: 
-  - Summarize sections or entire papers
-  - Explain complex concepts
-  - Answer questions about the content
-  - Translate text
-- 🌐 **Multi-LLM Support**: OpenAI GPT-3.5/4 (more models coming soon)
-- 🎨 **Markdown Rendering**: Beautiful formatting with LaTeX support
+项目当前采用统一的紫白色视觉基调，并优先服务深度科研阅读，而不是简单的摘要问答。
 
-## 🚀 Installation
+## 核心能力
 
-### From Release (Recommended)
+- **侧边栏对话**：在 Zotero 条目面板中持续显示阅读助手，不打断 PDF 阅读。
+- **PDF 上下文理解**：读取当前 PDF 的选中文本、注释、元数据和页面内容，用于回答论文相关问题。
+- **图片粘贴提问**：可以直接把截图、图表或页面片段粘贴到输入框中，让支持视觉的模型分析。
+- **高质量 Markdown 渲染**：支持列表、代码块、表格、引用块和 LaTeX 数学公式。
+- **知识图谱分析**：从 Zotero 文献库中构建论文关系、方法概念和数据集概念。
+- **PDF 全文优先的 KG Pipeline**：知识图谱分析优先使用 PDF 全文抽取；当 PDF 存在时，不再退回摘要版分析。
+- **证据化关系边**：关系和概念连接会尽量保留 evidence、rationale、source fields 等解释信息。
+- **可配置 LLM**：通过设置页配置兼容 OpenAI Chat Completions 协议的服务，例如 Qwen DashScope compatible mode。
 
-1. Download the latest `.xpi` file from [Releases](https://github.com/yourusername/zotero-reading-assistant/releases)
-2. In Zotero, go to `Tools` → `Add-ons`
-3. Click the gear icon → `Install Add-on From File`
-4. Select the downloaded `.xpi` file
+## 使用场景
 
-### From Source
+- **快速理解论文**：询问核心问题、方法路线、贡献、限制和实验结果。
+- **精读 PDF**：针对当前页、选中文本或注释继续追问。
+- **检查模型/方法定位**：区分论文是提出方法、使用方法、扩展方法还是仅引用方法。
+- **梳理 references**：基于 PDF bibliography 提取关键引用，辅助构建文献关系。
+- **构建知识图谱**：把一批 Zotero 文献转化成可浏览的论文-方法-数据集网络。
+
+## 安装与构建
+
+### 依赖
+
+- Node.js
+- npm
+- Zotero 7 或兼容新版 Zotero 插件系统的版本
+
+### 本地构建
 
 ```bash
-git clone https://github.com/yourusername/zotero-reading-assistant.git
-cd zotero-reading-assistant
 npm install
-npm run build
+npm run build-dev
 ```
 
-The `.xpi` file will be in the `builds` directory.
+构建产物会生成在：
 
-## 🔧 Configuration
-
-1. Open Zotero Reading Assistant sidebar
-2. Click the settings icon
-3. Enter your OpenAI API key
-4. Configure other preferences as needed
-
-### Available Settings
-
-- `secretKey`: Your OpenAI API key
-- `model`: Model name (gpt-3.5-turbo, gpt-4, etc.)
-- `api`: API endpoint URL
-- `temperature`: Response randomness (0-2)
-
-## 📚 Usage
-
-### Opening the Sidebar
-
-- Click the Reading Assistant icon in the Zotero toolbar
-- Or use keyboard shortcut: `Shift + /`
-
-### Basic Operations
-
-1. **Ask about PDF**: Select text in PDF and ask questions
-2. **Summarize**: Request summaries of sections or papers
-3. **Explain**: Get explanations of complex terms
-4. **Translate**: Translate selected text
-
-### Example Prompts
-
-```
-Summarize the main findings of this paper
-What methodology did the authors use?
-Explain the concept of [term] in simple terms
-Translate this paragraph to Chinese
+```text
+builds/
 ```
 
-## 🙏 Acknowledgments
+开发安装可根据项目脚本或 Zotero 开发扩展加载方式进行。
 
-This project is based on [zotero-gpt](https://github.com/MuiseDestiny/zotero-gpt) by MuiseDestiny.
+## 配置 LLM
 
-Key differences from the original:
-- Sidebar interface instead of floating window
-- Removed proprietary validation system
-- Focused on reading assistance workflow
-- Simplified command system
-- Enhanced conversation management
+打开 Zotero 插件设置页，填写：
 
-## 📄 License
+- **API Key**：你的模型服务密钥
+- **Base URL**：兼容 Chat Completions 的接口地址
+- **Model**：模型名称
+- **Temperature**：生成温度
+- **Max tokens**：最大输出长度
+- **Web search**：如果模型服务支持，可按需开启
 
-This project is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+示例模型服务可以使用 Qwen DashScope compatible mode。请不要把真实 API Key 写入 README、源码或提交历史。
 
-Original project (zotero-gpt) by MuiseDestiny is also licensed under AGPL-3.0.
+## 知识图谱工作流
 
-## 🤝 Contributing
+知识图谱模块大致分为三步：
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. **单篇论文画像**：从 Zotero 条目和 PDF 全文中抽取任务、贡献、方法、数据集、限制和 references。
+2. **论文关系判断**：基于结构化画像判断论文之间的引用、相似方法、同领域、同数据集、对比关系等。
+3. **概念归并**：把方法名和数据集名归并为概念节点，形成可浏览的知识网络。
 
-## 📮 Support
+当前策略是 **PDF-first**：
 
-- Issues: [GitHub Issues](https://github.com/yourusername/zotero-reading-assistant/issues)
-- Discussions: [GitHub Discussions](https://github.com/yourusername/zotero-reading-assistant/discussions)
+- 有 PDF 时，优先使用 Zotero full-text index。
+- 如果索引缺失，使用 Zotero PDFWorker 直接抽取 PDF 文本。
+- 如果 PDF 存在但无法抽出可读文本，会提示修复 PDF 或重建索引。
+- 只有没有 PDF 的条目才允许使用摘要作为兜底信息。
 
-## 🗺️ Roadmap
+## 开发命令
 
-- [ ] Multi-LLM support (Claude, local models)
-- [ ] Enhanced reading context awareness
-- [ ] Note-taking integration
-- [ ] Citation management
-- [ ] Collaborative features
-- [ ] Mobile support
+```bash
+# 类型检查
+npx tsc --noEmit
 
----
+# 开发构建
+npm run build-dev
 
-Made with ❤️ for the academic community
+# 生产构建
+npm run build-prod
+```
+
+## 项目结构
+
+```text
+addon/                         Zotero 插件静态资源
+src/sidebar/                   右侧栏聊天界面
+src/modules/llm/               LLM provider 与统一调用管理
+src/modules/zotero/            Zotero/PDF 读取能力
+src/features/knowledge-graph/  知识图谱 UI、状态和分析 pipeline
+docs/assets/                   README 和文档图片资源
+scripts/                       构建与开发脚本
+```
+
+## 设计原则
+
+- **阅读不中断**：优先使用侧边栏，而不是弹窗式交互。
+- **上下文优先**：回答必须尽量基于当前 PDF、选区、注释和 Zotero 元数据。
+- **质量优先**：知识图谱更重视完整 PDF、references、evidence 和可解释关系。
+- **视觉统一**：以紫白色作为主基调，保持轻量、清晰、学术工具感。
+- **安全配置**：API Key 只通过本地设置存储，不应硬编码到仓库。
+
+## 致谢
+
+本项目基于 [zotero-gpt](https://github.com/MuiseDestiny/zotero-gpt) 的插件思路继续发展，并针对侧边栏阅读、PDF 深度上下文和知识图谱工作流做了重构与扩展。
+
+## License
+
+AGPL-3.0-or-later
