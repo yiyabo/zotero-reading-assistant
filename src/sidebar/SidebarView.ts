@@ -7,6 +7,7 @@ import { Message, MessageContentPart } from "../modules/llm/types";
 import { getString } from "../modules/utils/locale";
 import { getPref, setPref, PrefKeys } from "../modules/utils/prefs";
 import { buildCurrentPaperContext, PaperContextResult, navigateToPDFPage } from "../modules/zotero/PDFReader";
+import { injectSharedStyles } from "../shared/design-tokens";
 import { buildSidebarStyles } from "./styles";
 import { buildEmptyState as buildEmptyStateDom } from "./EmptyState";
 import {
@@ -682,6 +683,7 @@ export default class SidebarView {
   }
 
   private ensureStyles(doc: Document): void {
+    injectSharedStyles(doc, config.addonRef, `.${config.addonRef}-panel`);
     const styleId = `${config.addonRef}-sidebar-style`;
     if (doc.getElementById(styleId)) return;
 

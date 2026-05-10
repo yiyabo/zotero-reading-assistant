@@ -7,3 +7,4 @@ zotero-cmd.json
 *.log
 .DS_Store
 *.tsbuildinfo
+.spec-workflow/

@@ -72,6 +72,7 @@
 
 .readingassistant-pref-row html|input:focus,
 .readingassistant-pref-row input:focus {
-  border-color: var(--accent-blue, #2563eb);
+  border-color: var(--ra-brand, #8B5CF6);
   outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ra-brand, #8B5CF6) 20%, transparent);
 }

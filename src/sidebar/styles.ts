@@ -34,22 +34,25 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-panel {
-        --ra-primary: #8B5CF6;
-        --ra-primary-soft: #A78BFA;
-        --ra-secondary: #7C3AED;
-        --ra-accent: #A855F7;
-        --ra-gradient: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 55%, #A855F7 100%);
-        --ra-gradient-soft: linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(168,85,247,0.10) 100%);
-        --ra-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-        --ra-shadow-md: 0 4px 12px rgba(139, 92, 246, 0.18);
-        --ra-shadow-lg: 0 10px 28px rgba(139, 92, 246, 0.22);
-        --ra-radius: 16px;
-        --ra-radius-lg: 22px;
-        --ra-radius-xl: 26px;
-        --ra-bg: var(--material-background, #ffffff);
-        --ra-text: var(--fill-primary, #1f2937);
+        /* ── Panel-scoped aliases to shared design tokens ─────────────── */
+        --ra-primary:       var(--ra-brand);
+        --ra-primary-soft:  var(--ra-purple-400);
+        --ra-secondary:     var(--ra-brand-hover);
+        --ra-accent:        var(--ra-purple-400);
+        /* gradient/gradient-soft inherited from :root shared tokens */
+        /* shadows: panel uses a shifted naming — alias to the right tier */
+        --ra-shadow-sm: var(--ra-shadow-xs);
+        --ra-shadow-md: var(--ra-shadow-sm);
+        --ra-shadow-lg: var(--ra-shadow-md);
+        /* radius: map to semantic token names */
+        --ra-radius:    var(--ra-radius-card);
+        --ra-radius-lg: var(--ra-radius-surface);
+        --ra-radius-xl: var(--ra-radius-window);
+        /* surface & text: panel keeps Zotero system vars as primary source */
+        --ra-bg:        var(--material-background, var(--ra-surface));
+        --ra-text:      var(--fill-primary, #1f2937);
         --ra-text-muted: var(--fill-secondary, #6b7280);
-        --ra-border: var(--color-border, #e5e7eb);
+        --ra-border:    var(--color-border, #e5e7eb);
 
         display: flex;
         flex-direction: column;
@@ -152,6 +155,15 @@ export function buildSidebarStyles(addonRef: string): string {
 
       .${addonRef}-toolbar-btn:active {
         transform: translateY(0) scale(0.96);
+      }
+
+      .${addonRef}-toolbar-btn:disabled,
+      .${addonRef}-toolbar-btn[aria-disabled="true"] {
+        opacity: 0.45;
+        cursor: not-allowed;
+        pointer-events: none;
+        transform: none;
+        box-shadow: none;
       }
 
       .${addonRef}-messages {
@@ -397,9 +409,12 @@ export function buildSidebarStyles(addonRef: string): string {
       .${addonRef}-retry-btn:focus-visible,
       .${addonRef}-copy-btn:focus-visible,
       .${addonRef}-image-remove:focus-visible,
+      .${addonRef}-toolbar-btn:focus-visible,
+      .${addonRef}-followup-btn:focus-visible,
       .${addonRef}-input:focus-visible {
-        outline: 2px solid var(--ra-primary);
+        outline: 2px solid var(--ra-brand);
         outline-offset: 2px;
+        box-shadow: var(--ra-shadow-glow);
       }
       /* Inside the gradient setup card, the brand-colored outline would
          clash with the brand-colored background; use a brighter contrast. */
@@ -559,7 +574,7 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-message-actions-visible {
-        opacity: 1 !important;
+        opacity: 1;
       }
 
       .${addonRef}-message:hover .${addonRef}-message-actions {
@@ -588,6 +603,14 @@ export function buildSidebarStyles(addonRef: string): string {
 
       .${addonRef}-retry-btn:active {
         transform: scale(0.96);
+      }
+
+      .${addonRef}-retry-btn:disabled,
+      .${addonRef}-retry-btn[aria-disabled="true"] {
+        opacity: 0.45;
+        cursor: not-allowed;
+        pointer-events: none;
+        transform: none;
       }
 
       .${addonRef}-regenerate-btn {
@@ -1302,7 +1325,7 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-message-actions-visible ~ .${addonRef}-followup-bar {
-        opacity: 1 !important;
+        opacity: 1;
       }
 
       .${addonRef}-followup-btn {
@@ -1333,6 +1356,15 @@ export function buildSidebarStyles(addonRef: string): string {
 
       .${addonRef}-followup-btn:active {
         transform: translateY(0) scale(0.97);
+      }
+
+      .${addonRef}-followup-btn:disabled,
+      .${addonRef}-followup-btn[aria-disabled="true"] {
+        opacity: 0.45;
+        cursor: not-allowed;
+        pointer-events: none;
+        transform: none;
+        box-shadow: none;
       }
 
       /* ------------------------------------------------------------------
