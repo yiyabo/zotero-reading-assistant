@@ -80,8 +80,8 @@ export function buildSidebarStyles(addonRef: string): string {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
         font-size: 13px;
         background:
-          radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 45%),
-          radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.07) 0%, transparent 50%),
+          radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--ra-brand) 8%, transparent) 0%, transparent 45%),
+          radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--ra-purple-400) 7%, transparent) 0%, transparent 50%),
           var(--ra-bg);
       }
 
@@ -120,14 +120,14 @@ export function buildSidebarStyles(addonRef: string): string {
         height: 6px;
         border-radius: 50%;
         background: var(--ra-secondary);
-        box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.6);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--ra-brand) 60%, transparent);
         animation: ra-pulse 1.4s ease-in-out infinite;
       }
 
       @keyframes ra-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.55); }
-        70% { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ra-brand) 55%, transparent); }
+        70% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ra-brand) 0%, transparent); }
+        100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ra-brand) 0%, transparent); }
       }
 
       .${addonRef}-toolbar-btn {
@@ -239,7 +239,7 @@ export function buildSidebarStyles(addonRef: string): string {
         line-height: 1;
         height: 52px;
         user-select: none;
-        filter: drop-shadow(0 6px 14px rgba(139, 92, 246, 0.20));
+        filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--ra-brand) 20%, transparent));
       }
 
       .${addonRef}-empty-title {
@@ -497,7 +497,7 @@ export function buildSidebarStyles(addonRef: string): string {
         height: 12px;
         border-radius: 4px;
         background: var(--ra-gradient);
-        box-shadow: 0 1px 3px rgba(139, 92, 246, 0.4);
+        box-shadow: 0 1px 3px color-mix(in srgb, var(--ra-brand) 40%, transparent);
       }
 
       .${addonRef}-message.user .${addonRef}-message-label {
@@ -529,7 +529,7 @@ export function buildSidebarStyles(addonRef: string): string {
         border: none;
         border-radius: 16px 16px 4px 16px;
         background: var(--ra-gradient);
-        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.28);
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--ra-brand) 28%, transparent);
       }
 
       .${addonRef}-message.user .${addonRef}-message-content a {
@@ -732,13 +732,13 @@ export function buildSidebarStyles(addonRef: string): string {
         flex: 1 1 auto;
         min-width: 0;
         justify-content: center;
-        color: #6D28D9;
-        background: linear-gradient(180deg, #F5F3FF, #EDE9FE);
-        border-color: rgba(139, 92, 246, 0.35);
+        color: var(--ra-brand-active);
+        background: linear-gradient(180deg, var(--ra-purple-50), var(--ra-purple-100));
+        border-color: var(--ra-border-strong);
       }
       .${addonRef}-context-bar-add:hover:not(:disabled) {
-        background: linear-gradient(180deg, #EDE9FE, #DDD6FE);
-        border-color: rgba(139, 92, 246, 0.55);
+        background: linear-gradient(180deg, var(--ra-purple-100), var(--ra-purple-200));
+        border-color: color-mix(in srgb, var(--ra-brand) 55%, transparent);
       }
       .${addonRef}-context-bar-add.${addonRef}-context-bar-btn-disabled {
         background: rgba(243, 244, 246, 0.7);
@@ -746,22 +746,22 @@ export function buildSidebarStyles(addonRef: string): string {
         border-color: rgba(229, 231, 235, 0.9);
       }
       .${addonRef}-context-bar-wiki {
-        color: #6D28D9;
+        color: var(--ra-brand-active);
         background: rgba(255, 255, 255, 0.92);
-        border-color: rgba(139, 92, 246, 0.28);
+        border-color: color-mix(in srgb, var(--ra-brand) 28%, transparent);
       }
       .${addonRef}-context-bar-wiki:hover:not(:disabled) {
-        background: linear-gradient(180deg, #FFFFFF, #F5F3FF);
-        border-color: rgba(139, 92, 246, 0.52);
+        background: linear-gradient(180deg, #FFFFFF, var(--ra-purple-50));
+        border-color: color-mix(in srgb, var(--ra-brand) 52%, transparent);
       }
       .${addonRef}-context-bar-open {
-        color: #6D28D9;
+        color: var(--ra-brand-active);
         background: rgba(255, 255, 255, 0.92);
-        border-color: rgba(139, 92, 246, 0.28);
+        border-color: color-mix(in srgb, var(--ra-brand) 28%, transparent);
       }
       .${addonRef}-context-bar-open:hover:not(:disabled) {
-        background: linear-gradient(180deg, #FFFFFF, #F5F3FF);
-        border-color: rgba(139, 92, 246, 0.52);
+        background: linear-gradient(180deg, #FFFFFF, var(--ra-purple-50));
+        border-color: color-mix(in srgb, var(--ra-brand) 52%, transparent);
       }
       .${addonRef}-context-bar-icon {
         font-size: 13px;
@@ -792,14 +792,14 @@ export function buildSidebarStyles(addonRef: string): string {
           linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92)),
           var(--ra-bg);
         box-shadow:
-          0 12px 28px rgba(139, 92, 246, 0.12),
+          0 12px 28px color-mix(in srgb, var(--ra-brand) 12%, transparent),
           inset 0 1px 0 rgba(255, 255, 255, 0.72);
       }
 
       .${addonRef}-input-dock:focus-within {
         border-color: color-mix(in srgb, var(--ra-secondary) 55%, transparent);
         box-shadow:
-          0 14px 32px rgba(139, 92, 246, 0.18),
+          0 14px 32px color-mix(in srgb, var(--ra-brand) 18%, transparent),
           0 0 0 3px color-mix(in srgb, var(--ra-secondary) 14%, transparent);
       }
 
@@ -919,7 +919,7 @@ export function buildSidebarStyles(addonRef: string): string {
         color: #fff;
         cursor: pointer;
         transition: transform 0.12s ease, box-shadow 0.18s ease, filter 0.2s ease;
-        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.18);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--ra-brand) 18%, transparent);
       }
 
       .${addonRef}-send-btn .${addonRef}-send-icon {
@@ -941,7 +941,7 @@ export function buildSidebarStyles(addonRef: string): string {
 
       .${addonRef}-send-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(139, 92, 246, 0.45);
+        box-shadow: 0 6px 18px color-mix(in srgb, var(--ra-brand) 45%, transparent);
         filter: brightness(1.06);
       }
 
@@ -977,7 +977,7 @@ export function buildSidebarStyles(addonRef: string): string {
         pointer-events: none;
         transform: translate(-50%, 6px);
         transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.15s ease;
-        box-shadow: 0 8px 20px rgba(139, 92, 246, 0.12);
+        box-shadow: 0 8px 20px color-mix(in srgb, var(--ra-brand) 12%, transparent);
         backdrop-filter: blur(10px);
         z-index: 10;
       }
@@ -994,7 +994,7 @@ export function buildSidebarStyles(addonRef: string): string {
         background:
           linear-gradient(180deg, rgba(255,255,255,0.92), rgba(245,243,255,0.78));
         border-color: color-mix(in srgb, var(--ra-secondary) 44%, transparent);
-        box-shadow: 0 10px 24px rgba(139, 92, 246, 0.20);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--ra-brand) 20%, transparent);
       }
 
       .${addonRef}-scroll-bottom-btn:active {
@@ -1183,7 +1183,7 @@ export function buildSidebarStyles(addonRef: string): string {
         margin: 10px 0;
         padding: 30px 14px 12px;
         border-radius: 12px;
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%);
+        background: linear-gradient(135deg, var(--ra-purple-900) 0%, var(--ra-purple-800) 60%, var(--ra-purple-700) 100%);
         color: #e0e7ff;
         box-shadow: 0 6px 16px rgba(30, 27, 75, 0.25), inset 0 1px 0 rgba(255,255,255,0.05);
         font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, Menlo, monospace;
@@ -1385,8 +1385,8 @@ export function buildSidebarStyles(addonRef: string): string {
           /* Make the ambient brand-tinted radial a touch brighter so it
              shows up against the dark background. */
           background:
-            radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.12) 0%, transparent 45%),
-            radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.10) 0%, transparent 50%),
+            radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--ra-brand) 12%, transparent) 0%, transparent 45%),
+            radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--ra-purple-400) 10%, transparent) 0%, transparent 50%),
             var(--ra-bg);
         }
 

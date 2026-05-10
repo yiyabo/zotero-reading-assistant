@@ -1,4 +1,8 @@
 .readingassistant-preferences {
+  --ra-purple-50: #F5F3FF;
+  --ra-purple-500: #8B5CF6;
+  --ra-brand: var(--ra-purple-500);
+  --ra-ring: color-mix(in srgb, var(--ra-brand) 20%, transparent);
   max-width: 760px;
 }
 
@@ -72,7 +76,7 @@
 
 .readingassistant-pref-row html|input:focus,
 .readingassistant-pref-row input:focus {
-  border-color: var(--ra-brand, #8B5CF6);
+  border-color: var(--ra-brand);
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ra-brand, #8B5CF6) 20%, transparent);
+  box-shadow: 0 0 0 3px var(--ra-ring);
 }

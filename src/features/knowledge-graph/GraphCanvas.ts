@@ -30,6 +30,7 @@
 import cytoscape from "cytoscape";
 import fcose from "cytoscape-fcose";
 import { t } from "../../sidebar/domUtils";
+import { PURPLE } from "../../shared/design-tokens";
 import { fileLog } from "../../utils/fileLog";
 import { kgStore, type KGConceptNode, type KGEdge, type KGEdgeType, type KGPaperState, type KGPaperStatus, type KGState } from "./KGStore";
 
@@ -46,7 +47,7 @@ const CONCEPT_DEGREE_THRESHOLD = 2;
 const CONCEPT_COLOR: Record<string, string> = {
   method: "#F97316",   // orange
   dataset: "#2563EB",  // blue
-  task: "#7C3AED",     // purple
+  task: PURPLE[600],    // purple
   concept: "#64748B",  // slate
 };
 
@@ -56,10 +57,10 @@ const CONCEPT_COLOR: Record<string, string> = {
  * sessions. Pastel-friendly, lifts off the dotted-grid background.
  */
 const DOMAIN_PALETTE = [
-  "#6366F1", // indigo
+  PURPLE[500], // brand purple
   "#14B8A6", // teal
   "#F59E0B", // amber
-  "#A855F7", // violet
+  PURPLE[400], // violet
   "#22C55E", // green
   "#EC4899", // pink
   "#3B82F6", // blue
@@ -293,7 +294,7 @@ export function buildGraphCanvas(opts: GraphCanvasOptions): GraphCanvasHandle {
     const tagBits: string[] = [];
     if (domain) {
       tagBits.push(
-        `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:#EEF2FF;color:#4338CA;font-size:10.5px;font-weight:600;">${escapeHtml(domain)}</span>`,
+        `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--ra-brand-soft);color:var(--ra-brand-active);font-size:10.5px;font-weight:600;">${escapeHtml(domain)}</span>`,
       );
     }
     if (kind === "concept") {
@@ -326,7 +327,7 @@ export function buildGraphCanvas(opts: GraphCanvasOptions): GraphCanvasHandle {
     const strengthPct = Math.round(strength * 100);
     const lines: string[] = [];
     lines.push(
-      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:#F5F3FF;color:#6D28D9;font-size:11px;font-weight:700;">${escapeHtml(typeLabel)}</span><span style="color:#9ca3af;font-size:10.5px;">${strengthPct}%</span></div>`,
+      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--ra-brand-soft);color:var(--ra-brand-active);font-size:11px;font-weight:700;">${escapeHtml(typeLabel)}</span><span style="color:#9ca3af;font-size:10.5px;">${strengthPct}%</span></div>`,
     );
     if (desc) {
       lines.push(`<div style="color:#1f2937;font-size:12px;line-height:1.55;">${escapeHtml(desc)}</div>`);
@@ -1044,7 +1045,7 @@ function buildPaperBgImage(
   if (cached) return cached;
   const STATUS_DOT: Record<string, string> = {
     pending: "#94a3b8",
-    analyzing: "#8B5CF6",
+    analyzing: PURPLE[500],
     ready: "#22c55e",
     error: "#ef4444",
   };
@@ -1178,7 +1179,7 @@ function statusBgFor(status: string): string {
   switch (status) {
     case "concept": return "#FFEDD5";
     case "ready": return "#DCFCE7";
-    case "analyzing": return "#EDE9FE";
+    case "analyzing": return PURPLE[100];
     case "pending": return "#F1F5F9";
     case "error": return "#FEE2E2";
     default: return "#F1F5F9";
@@ -1189,7 +1190,7 @@ function statusFgFor(status: string): string {
   switch (status) {
     case "concept": return "#C2410C";
     case "ready": return "#15803D";
-    case "analyzing": return "#6D28D9";
+    case "analyzing": return PURPLE[700];
     case "pending": return "#475569";
     case "error": return "#B91C1C";
     default: return "#475569";
@@ -1232,7 +1233,7 @@ function buildStylesheet(): any[] {
   // a clean white card a-la the design comp.
   const STATUS = {
     pending: "#94a3b8",
-    analyzing: "#8B5CF6",
+    analyzing: PURPLE[500],
     ready: "#22c55e",
     error: "#ef4444",
   } as const;
@@ -1309,9 +1310,9 @@ function buildStylesheet(): any[] {
         width: 142 as any,
         height: 142 as any,
         "border-width": 4 as any,
-        "border-color": "#6366F1",
+        "border-color": PURPLE[600],
         "shadow-blur": 38 as any,
-        "shadow-color": "#8B5CF6",
+        "shadow-color": PURPLE[500],
         "shadow-opacity": 0.5 as any,
         "shadow-offset-x": 0 as any,
         "shadow-offset-y": 0 as any,

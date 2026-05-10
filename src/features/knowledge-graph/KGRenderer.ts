@@ -821,8 +821,8 @@ function buildKGStyles(ref: string): string {
       border: 1px solid var(--ra-border);
       border-radius: var(--ra-radius-card);
       background:
-        radial-gradient(rgba(139, 92, 246, 0.10) 1px, transparent 1px) 0 0 / 22px 22px,
-        linear-gradient(135deg, #FBFAFF 0%, #F5F3FF 100%);
+        radial-gradient(color-mix(in srgb, var(--ra-brand) 10%, transparent) 1px, transparent 1px) 0 0 / 22px 22px,
+        linear-gradient(135deg, var(--ra-surface) 0%, var(--ra-purple-50) 100%);
       box-shadow: var(--ra-shadow-sm);
       overflow: hidden;
     }

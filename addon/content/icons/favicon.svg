@@ -1,17 +1,17 @@
 <svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="0%" stop-color="#7C3AED"/>
       <stop offset="55%" stop-color="#8B5CF6"/>
-      <stop offset="100%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
     </linearGradient>
     <linearGradient id="page" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#FFFFFF"/>
       <stop offset="100%" stop-color="#F5F3FF"/>
     </linearGradient>
     <linearGradient id="bubbleStroke" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366F1"/>
-      <stop offset="100%" stop-color="#A855F7"/>
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
     </linearGradient>
     <filter id="bookShadow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="1.4" in="SourceAlpha"/>
@@ -44,17 +44,17 @@
 
   <!-- Text lines on left page -->
   <g>
-    <rect x="21" y="40" width="20" height="2.2" rx="1.1" fill="#6366F1" opacity="0.55"/>
-    <rect x="21" y="46" width="16" height="2.2" rx="1.1" fill="#A855F7" opacity="0.5"/>
-    <rect x="21" y="52" width="18" height="2.2" rx="1.1" fill="#6366F1" opacity="0.45"/>
+    <rect x="21" y="40" width="20" height="2.2" rx="1.1" fill="#7C3AED" opacity="0.55"/>
+    <rect x="21" y="46" width="16" height="2.2" rx="1.1" fill="#A78BFA" opacity="0.5"/>
+    <rect x="21" y="52" width="18" height="2.2" rx="1.1" fill="#7C3AED" opacity="0.45"/>
     <rect x="21" y="58" width="13" height="2.2" rx="1.1" fill="#8B5CF6" opacity="0.4"/>
   </g>
   <!-- Text lines on right page -->
   <g>
-    <rect x="55" y="40" width="20" height="2.2" rx="1.1" fill="#A855F7" opacity="0.55"/>
-    <rect x="55" y="46" width="22" height="2.2" rx="1.1" fill="#6366F1" opacity="0.5"/>
+    <rect x="55" y="40" width="20" height="2.2" rx="1.1" fill="#A78BFA" opacity="0.55"/>
+    <rect x="55" y="46" width="22" height="2.2" rx="1.1" fill="#7C3AED" opacity="0.5"/>
     <rect x="55" y="52" width="17" height="2.2" rx="1.1" fill="#8B5CF6" opacity="0.45"/>
-    <rect x="55" y="58" width="14" height="2.2" rx="1.1" fill="#6366F1" opacity="0.4"/>
+    <rect x="55" y="58" width="14" height="2.2" rx="1.1" fill="#7C3AED" opacity="0.4"/>
   </g>
 
   <!-- AI chat bubble (top-right badge) -->
@@ -63,8 +63,8 @@
     <path d="M4 2 L28 2 Q30 2 30 4 L30 16 Q30 18 28 18 L13 18 L8 23 L9 18 L4 18 Q2 18 2 16 L2 4 Q2 2 4 2 Z"
           fill="#FFFFFF" stroke="url(#bubbleStroke)" stroke-width="1.4"/>
     <!-- Three dots -->
-    <circle cx="10" cy="10" r="1.7" fill="#6366F1"/>
+    <circle cx="10" cy="10" r="1.7" fill="#7C3AED"/>
     <circle cx="16" cy="10" r="1.7" fill="#8B5CF6"/>
-    <circle cx="22" cy="10" r="1.7" fill="#A855F7"/>
+    <circle cx="22" cy="10" r="1.7" fill="#A78BFA"/>
   </g>
 </svg>

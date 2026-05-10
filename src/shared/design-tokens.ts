@@ -31,9 +31,9 @@ export const SHARED_KEYFRAMES = `
     to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes ra-pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.55); }
-    70%  { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ra-brand) 55%, transparent); }
+    70%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ra-brand) 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ra-brand) 0%, transparent); }
   }
   @keyframes ra-shimmer {
     0%   { background-position: -200% 0; }
