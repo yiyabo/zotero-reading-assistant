@@ -95,6 +95,14 @@ async function main() {
 
   copyFolderRecursiveSync("addon", buildDir);
 
+  // Copy KaTeX CSS and fonts for math rendering
+  const katexDistDir = path.join("node_modules", "katex", "dist");
+  if (fs.existsSync(katexDistDir)) {
+    copyFileSync(path.join(katexDistDir, "katex.min.css"), path.join(buildDir, "addon/content/katex.min.css"));
+    copyFolderRecursiveSync(path.join(katexDistDir, "fonts"), path.join(buildDir, "addon/content"));
+    console.log("[Build] KaTeX assets copied");
+  }
+
   copyFileSync("update-template.json", "update.json");
   copyFileSync("update-template.rdf", "update.rdf");
 

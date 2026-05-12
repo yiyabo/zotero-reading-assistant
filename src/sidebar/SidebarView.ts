@@ -685,12 +685,21 @@ export default class SidebarView {
   private ensureStyles(doc: Document): void {
     injectSharedStyles(doc, config.addonRef, `.${config.addonRef}-panel`);
     const styleId = `${config.addonRef}-sidebar-style`;
-    if (doc.getElementById(styleId)) return;
+    if (!doc.getElementById(styleId)) {
+      const style = createHTMLElement(doc, "style");
+      style.id = styleId;
+      style.textContent = buildSidebarStyles(config.addonRef);
+      doc.documentElement.appendChild(style);
+    }
 
-    const style = createHTMLElement(doc, "style");
-    style.id = styleId;
-    style.textContent = buildSidebarStyles(config.addonRef);
-    doc.documentElement.appendChild(style);
+    const katexId = `${config.addonRef}-katex-css`;
+    if (!doc.getElementById(katexId)) {
+      const link = doc.createElementNS(HTML_NS, "link") as HTMLLinkElement;
+      link.id = katexId;
+      link.rel = "stylesheet";
+      link.href = `chrome://${config.addonRef}/content/katex.min.css`;
+      doc.documentElement.appendChild(link);
+    }
   }
 
   private getSectionSummary(item?: any, tabType?: string): string {

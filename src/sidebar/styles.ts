@@ -569,7 +569,7 @@ export function buildSidebarStyles(addonRef: string): string {
         display: flex;
         gap: 4px;
         margin-top: 4px;
-        opacity: 0;
+        opacity: 0.4;
         transition: opacity 0.18s ease;
       }
 
@@ -1288,6 +1288,30 @@ export function buildSidebarStyles(addonRef: string): string {
       .${addonRef}-copy-btn:hover {
         background: rgba(255,255,255,0.18);
         color: #fff;
+      }
+
+      .${addonRef}-msg-copy-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 22px;
+        padding: 0 8px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--ra-text-muted);
+        font-size: 11px;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+
+      .${addonRef}-msg-copy-btn:hover {
+        background: var(--ra-gradient-soft);
+        color: var(--ra-primary);
+      }
+
+      .${addonRef}-msg-copy-btn-copied {
+        color: #10b981;
       }
 
       .${addonRef}-page-citation {

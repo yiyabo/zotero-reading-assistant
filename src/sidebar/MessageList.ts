@@ -305,6 +305,34 @@ export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
 
   const contentDiv = createHTMLElement(doc, "div", `${addonRef}-message-content`);
 
+  function makeCopyButton(getText: () => string): HTMLButtonElement {
+    const btn = createHTMLElement(doc, "button", `${addonRef}-msg-copy-btn`);
+    btn.title = t("copy");
+    btn.setAttribute("aria-label", t("copy"));
+    btn.textContent = t("copy");
+    btn.addEventListener("click", () => {
+      const text = getText();
+      const flashOk = () => {
+        btn.textContent = t("copied");
+        btn.classList.add(`${addonRef}-msg-copy-btn-copied`);
+        setTimeout(() => {
+          btn.textContent = t("copy");
+          btn.classList.remove(`${addonRef}-msg-copy-btn-copied`);
+        }, 1500);
+      };
+      doc.defaultView?.navigator.clipboard.writeText(text).then(flashOk).catch(() => {
+        const ta = doc.createElementNS(HTML_NS, "textarea") as HTMLTextAreaElement;
+        ta.value = text;
+        doc.body.appendChild(ta);
+        ta.select();
+        doc.execCommand("copy");
+        doc.body.removeChild(ta);
+        flashOk();
+      });
+    });
+    return btn;
+  }
+
   if (role === "assistant") {
     const textContent =
       typeof content === "string"
@@ -333,6 +361,12 @@ export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
       actions.appendChild(retryBtn);
       retryBtn.addEventListener("click", () => onRetry());
     }
+    actions.appendChild(
+      makeCopyButton(() => {
+        const el = messageDiv.querySelector(`.${addonRef}-message-content`);
+        return el?.textContent || "";
+      }),
+    );
     if (onRegenerate) {
       const regenBtn = createHTMLElement(doc, "button", `${addonRef}-regenerate-btn`);
       regenBtn.title = t("regenerate");
@@ -365,6 +399,18 @@ export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
       }
     }
     messageDiv.appendChild(contentDiv);
+
+    const userActions = createHTMLElement(doc, "div", `${addonRef}-message-actions`);
+    userActions.appendChild(
+      makeCopyButton(() => {
+        if (typeof content === "string") return content;
+        return content
+          .filter((p) => p.type === "text")
+          .map((p) => (p as { type: "text"; text: string }).text)
+          .join("\n");
+      }),
+    );
+    messageDiv.appendChild(userActions);
   }
 
   container.appendChild(messageDiv);

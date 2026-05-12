@@ -1,6 +1,8 @@
 import { config } from "../../../package.json";
 import { createHTMLElement } from "../../sidebar/domUtils";
 import { injectSharedStyles } from "../../shared/design-tokens";
+import { renderMarkdown } from "../../modules/utils/markdown";
+import { getLLMManager } from "../../modules/llm/LLMManager";
 import {
   KGConceptNode,
   KGConceptType,
@@ -419,11 +421,126 @@ function buildNotes(doc: Document, pageId: string): HTMLElement {
   const note = wikiStore.getNote(pageId);
   const status = createHTMLElement(doc, "div", `${config.addonRef}-wiki-note-status`);
   status.textContent = note?.updatedAt ? `上次保存：${new Date(note.updatedAt).toLocaleString()}` : "尚未保存备注";
+
+  const tabBar = createHTMLElement(doc, "div", `${config.addonRef}-wiki-note-tabs`);
+  const editTab = createHTMLElement(doc, "button", `${config.addonRef}-wiki-note-tab`);
+  editTab.type = "button";
+  editTab.textContent = "编辑";
+  const previewTab = createHTMLElement(doc, "button", `${config.addonRef}-wiki-note-tab`);
+  previewTab.type = "button";
+  previewTab.textContent = "预览";
+  tabBar.append(editTab, previewTab);
+
+  const aiBtn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-note-ai-btn`);
+  aiBtn.type = "button";
+  aiBtn.textContent = "AI 整理";
+  aiBtn.title = "用 AI 整理和优化备注内容的 Markdown 格式";
+  tabBar.appendChild(aiBtn);
+
   const textarea = createHTMLElement(doc, "textarea", `${config.addonRef}-wiki-note-input`);
   textarea.placeholder = "在这里写你的 Markdown 备注、想法、复现实验记录或后续阅读计划...";
   textarea.value = note?.body || "";
+
+  const preview = createHTMLElement(doc, "div", `${config.addonRef}-wiki-note-preview`);
+  preview.style.display = "none";
+
+  let editing = true;
+
+  const renderPreview = () => {
+    const body = textarea.value.trim();
+    if (!body) {
+      preview.innerHTML = `<p class="${config.addonRef}-wiki-empty">还没有备注内容。</p>`;
+    } else {
+      preview.innerHTML = renderMarkdown(body);
+    }
+  };
+
+  const switchToEdit = () => {
+    editing = true;
+    editTab.classList.add("active");
+    previewTab.classList.remove("active");
+    textarea.style.display = "";
+    preview.style.display = "none";
+  };
+
+  const switchToPreview = () => {
+    editing = false;
+    previewTab.classList.add("active");
+    editTab.classList.remove("active");
+    textarea.style.display = "none";
+    preview.style.display = "";
+    renderPreview();
+  };
+
+  editTab.classList.add("active");
+  editTab.addEventListener("click", switchToEdit);
+  previewTab.addEventListener("click", switchToPreview);
+
+  let aiRunning = false;
+  aiBtn.addEventListener("click", () => {
+    const body = textarea.value.trim();
+    if (!body || aiRunning) return;
+
+    const llm = getLLMManager();
+    if (!llm.isReady()) {
+      status.textContent = "请先配置 LLM API";
+      return;
+    }
+
+    aiRunning = true;
+    aiBtn.disabled = true;
+    aiBtn.textContent = "整理中...";
+    status.textContent = "AI 正在整理内容...";
+
+    textarea.readOnly = true;
+
+    const systemPrompt = `你是一个 Markdown 内容整理助手。用户会给你一段从 AI 对话中复制出来的内容，请你：
+
+1. 去掉多余的对话格式（如"用户："、"助手："、"> "引用块嵌套等冗余前缀）
+2. 保留有价值的知识内容、要点、分析
+3. 用清晰的 Markdown 格式重新组织（合理使用标题、列表、加粗、代码块等）
+4. 数学公式必须用标准定界符包裹：行内公式用 $...$，独立公式用 $$...$$。例如 $E=mc^2$ 或 $$\\int_0^1 f(x)dx$$。不要把公式放在行内代码反引号里。
+5. 输出整理后的纯 Markdown，不要加任何额外说明或"以下是整理后的内容"之类的开头`;
+
+    const messages = [
+      { role: "system" as const, content: systemPrompt },
+      { role: "user" as const, content: body },
+    ];
+
+    let result = "";
+
+    llm.chat(messages, {
+      onStart: () => {
+        textarea.value = "";
+      },
+      onToken: (token: string) => {
+        result += token;
+        textarea.value = result;
+      },
+      onComplete: (fullText: string) => {
+        textarea.value = fullText;
+        textarea.readOnly = false;
+        aiRunning = false;
+        aiBtn.disabled = false;
+        aiBtn.textContent = "AI 整理";
+        status.textContent = "AI 整理完成，正在保存...";
+        void wikiStore.setNote(pageId, fullText).then(() => {
+          status.textContent = `已保存：${new Date().toLocaleString()}`;
+        });
+      },
+      onError: (error: Error) => {
+        textarea.readOnly = false;
+        aiRunning = false;
+        aiBtn.disabled = false;
+        aiBtn.textContent = "AI 整理";
+        status.textContent = `整理失败：${error.message}`;
+      },
+    });
+  });
+
   let timer: number | undefined;
   textarea.addEventListener("input", () => {
+    if (aiRunning) return;
     status.textContent = "保存中...";
     const host = doc.defaultView || window;
     if (timer) host.clearTimeout(timer);
@@ -433,7 +550,8 @@ function buildNotes(doc: Document, pageId: string): HTMLElement {
       });
     }, 450);
   });
-  section.append(status, textarea);
+
+  section.append(status, tabBar, textarea, preview);
   return section;
 }
 
@@ -1148,6 +1266,60 @@ function styles(ref: string): string {
       color: var(--ra-purple-600);
     }
 
+    .${ref}-wiki-note-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: var(--ra-space-2);
+      border-bottom: 1px solid var(--ra-border);
+    }
+
+    .${ref}-wiki-note-tab {
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 6px 14px;
+      background: transparent;
+      color: var(--ra-text-muted);
+      font-size: var(--ra-fs-sm);
+      font-weight: var(--ra-fw-medium);
+      font-family: inherit;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .${ref}-wiki-note-tab:hover {
+      color: var(--ra-purple-700);
+    }
+
+    .${ref}-wiki-note-tab.active {
+      color: var(--ra-purple-800);
+      border-bottom-color: var(--ra-purple-500);
+    }
+
+    .${ref}-wiki-note-ai-btn {
+      margin-left: auto;
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-pill);
+      padding: 4px 12px;
+      background: var(--ra-brand-soft);
+      color: var(--ra-purple-700);
+      font-size: var(--ra-fs-xs);
+      font-weight: var(--ra-fw-bold);
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+
+    .${ref}-wiki-note-ai-btn:hover:not(:disabled) {
+      background: var(--ra-gradient-soft);
+      box-shadow: var(--ra-shadow-sm);
+      transform: translateY(-1px);
+    }
+
+    .${ref}-wiki-note-ai-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .${ref}-wiki-note-input {
       box-sizing: border-box;
       width: 100%;
@@ -1170,6 +1342,79 @@ function styles(ref: string): string {
       border-color: var(--ra-brand);
       box-shadow: var(--ra-shadow-glow);
       outline: none;
+    }
+
+    .${ref}-wiki-note-preview {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 180px;
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-card);
+      padding: var(--ra-space-3);
+      background: var(--ra-surface);
+      color: var(--ra-text);
+      font: var(--ra-fs-base) / var(--ra-lh-base) -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: auto;
+    }
+
+    .${ref}-wiki-note-preview h1,
+    .${ref}-wiki-note-preview h2,
+    .${ref}-wiki-note-preview h3,
+    .${ref}-wiki-note-preview h4 {
+      margin: 0.6em 0 0.3em;
+      color: var(--ra-purple-900);
+      line-height: var(--ra-lh-tight);
+    }
+    .${ref}-wiki-note-preview h1 { font-size: var(--ra-fs-2xl); }
+    .${ref}-wiki-note-preview h2 { font-size: var(--ra-fs-xl); }
+    .${ref}-wiki-note-preview h3 { font-size: var(--ra-fs-lg); }
+    .${ref}-wiki-note-preview h4 { font-size: var(--ra-fs-base); }
+
+    .${ref}-wiki-note-preview p {
+      margin: 0.4em 0;
+    }
+
+    .${ref}-wiki-note-preview ul,
+    .${ref}-wiki-note-preview ol {
+      margin: 0.4em 0;
+      padding-left: 1.5em;
+    }
+
+    .${ref}-wiki-note-preview code {
+      background: var(--ra-surface-1);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-size: 0.9em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .${ref}-wiki-note-preview pre {
+      border-radius: var(--ra-radius-card);
+      padding: var(--ra-space-3);
+      overflow-x: auto;
+    }
+
+    .${ref}-wiki-note-preview pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .${ref}-wiki-note-preview blockquote {
+      margin: 0.4em 0;
+      padding: 2px 12px;
+      border-left: 3px solid var(--ra-purple-300);
+      color: var(--ra-text-muted);
+    }
+
+    .${ref}-wiki-note-preview table {
+      border-collapse: collapse;
+      margin: 0.4em 0;
+    }
+
+    .${ref}-wiki-note-preview th,
+    .${ref}-wiki-note-preview td {
+      border: 1px solid var(--ra-border);
+      padding: 4px 8px;
     }
   `;
 }
