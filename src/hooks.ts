@@ -51,6 +51,7 @@ function registerPreferenceObservers() {
     PrefKeys.SECRET_KEY,
     PrefKeys.API,
     PrefKeys.MODEL,
+    PrefKeys.PROVIDER,
     PrefKeys.TEMPERATURE,
     PrefKeys.MAX_TOKENS,
     PrefKeys.WEB_SEARCH,

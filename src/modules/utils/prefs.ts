@@ -7,6 +7,7 @@ export const PrefKeys = {
   SECRET_KEY: `${config.addonRef}.secretKey`,
   MODEL: `${config.addonRef}.model`,
   API: `${config.addonRef}.api`,
+  PROVIDER: `${config.addonRef}.provider`,
   TEMPERATURE: `${config.addonRef}.temperature`,
   MAX_TOKENS: `${config.addonRef}.maxTokens`,
   WEB_SEARCH: `${config.addonRef}.webSearch`,
@@ -16,6 +17,40 @@ export const PrefKeys = {
   EMBEDDING_BATCH_NUM: `${config.addonRef}.embeddingBatchNum`,
 } as const;
 
+export type ProviderPreset = {
+  label: string;
+  apiUrl: string;
+  model: string;
+};
+
+export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
+  dashscope: {
+    label: "DashScope (通义千问)",
+    apiUrl: "https://dashscope.aliyuncs.com/compatible-mode",
+    model: "qwen-max",
+  },
+  deepseek: {
+    label: "DeepSeek",
+    apiUrl: "https://api.deepseek.com",
+    model: "deepseek-chat",
+  },
+  openai: {
+    label: "OpenAI",
+    apiUrl: "https://api.openai.com",
+    model: "gpt-4o",
+  },
+  siliconflow: {
+    label: "SiliconFlow (硅基流动)",
+    apiUrl: "https://api.siliconflow.cn/v1",
+    model: "Qwen/Qwen2.5-72B-Instruct",
+  },
+  custom: {
+    label: "自定义",
+    apiUrl: "",
+    model: "",
+  },
+};
+
 /**
  * Default preference values
  */
@@ -23,6 +58,7 @@ export const DefaultPrefs = {
   [PrefKeys.SECRET_KEY]: "",
   [PrefKeys.MODEL]: "qwen-max",
   [PrefKeys.API]: "https://dashscope.aliyuncs.com/compatible-mode",
+  [PrefKeys.PROVIDER]: "dashscope",
   [PrefKeys.TEMPERATURE]: 0.7,
   [PrefKeys.MAX_TOKENS]: 8192,
   [PrefKeys.WEB_SEARCH]: true,

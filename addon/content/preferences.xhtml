@@ -4,10 +4,24 @@
       <label><html:h2 id="readingassistant-provider-title">Provider</html:h2></label>
 
       <html:p class="readingassistant-pref-description">
-        Configure a compatible chat completion endpoint. For Qwen DashScope, keep the default base URL and enter your DashScope API key.
+        选择预设 Provider 自动填充 API 地址和默认模型，或选择"自定义"手动填写任何 OpenAI 兼容的 endpoint。
       </html:p>
 
       <vbox class="readingassistant-pref-grid">
+        <hbox class="readingassistant-pref-row" align="center">
+          <label value="Provider" control="readingassistant-provider"/>
+          <html:select
+            id="readingassistant-provider"
+            preference="extensions.zotero.readingassistant.provider"
+          >
+            <html:option value="dashscope">DashScope (通义千问)</html:option>
+            <html:option value="deepseek">DeepSeek</html:option>
+            <html:option value="openai">OpenAI</html:option>
+            <html:option value="siliconflow">SiliconFlow (硅基流动)</html:option>
+            <html:option value="custom">自定义</html:option>
+          </html:select>
+        </hbox>
+
         <hbox class="readingassistant-pref-row" align="center">
           <label value="API Key" control="readingassistant-secret-key"/>
           <html:input
@@ -93,10 +107,36 @@
       <label><html:h2 id="readingassistant-tips-title">Usage Tips</html:h2></label>
 
       <html:ul class="readingassistant-pref-list">
-        <html:li>Use a vision-capable model if you want to paste figures or screenshots into chat.</html:li>
-        <html:li>Turn on web search only when your provider and model explicitly support it.</html:li>
-        <html:li>Higher max tokens help deep-read summaries, but they can also make requests slower.</html:li>
+        <html:li>使用视觉模型（如 qwen-vl-max、gpt-4o）可在对话中粘贴图片。</html:li>
+        <html:li>DeepSeek API 地址为 https://api.deepseek.com，模型填 deepseek-chat。</html:li>
+        <html:li>Web search 仅在 Provider 和模型明确支持时开启。</html:li>
+        <html:li>Max tokens 越大，深度阅读摘要越完整，但请求也会更慢。</html:li>
       </html:ul>
     </groupbox>
   </vbox>
+
+  <html:script type="application/javascript"><![CDATA[
+    (function() {
+      const PROVIDERS = {
+        dashscope:   { url: "https://dashscope.aliyuncs.com/compatible-mode", model: "qwen-max" },
+        deepseek:    { url: "https://api.deepseek.com",                        model: "deepseek-chat" },
+        openai:      { url: "https://api.openai.com",                          model: "gpt-4o" },
+        siliconflow: { url: "https://api.siliconflow.cn/v1",                   model: "Qwen/Qwen2.5-72B-Instruct" },
+        custom:      { url: "",                                                 model: "" }
+      };
+
+      const providerEl = document.getElementById("readingassistant-provider");
+      const urlEl      = document.getElementById("readingassistant-api");
+      const modelEl    = document.getElementById("readingassistant-model");
+      if (!providerEl || !urlEl || !modelEl) return;
+
+      providerEl.addEventListener("change", function() {
+        const key = providerEl.value;
+        const preset = PROVIDERS[key];
+        if (!preset) return;
+        if (preset.url)  urlEl.value   = preset.url;
+        if (preset.model) modelEl.value = preset.model;
+      });
+    })();
+  ]]></html:script>
 </vbox>
