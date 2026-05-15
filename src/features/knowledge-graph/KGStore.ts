@@ -55,49 +55,52 @@ export type PaperSummary = {
   proposedDatasets?: string[];  // datasets/benchmarks the paper itself releases
 
   // ---- References to prior work, with role tags ----
-  // Replaces methods + citedMethods + extendsFrom + baselines as a single
-  // role-tagged list, so the LLM doesn't have to decide which of four boxes
-  // a name belongs in.
   referencedMethods?: ReferencedItem[];
-  // Replaces datasets + benchmarks for non-owned datasets.
   referencedDatasets?: ReferencedItem[];
 
+  // ---- Pipeline & methodology ----
+  pipeline?: PipelineStep[];    // ordered steps of the paper's method pipeline
+  methodology?: string[];       // core methodology insights / design principles
+
   // ---- Citations & supporting context ----
-  references?: PaperReference[];
   limitations?: string[];
   keywords?: string[];
 
-  // ---- Legacy fields from pre-role-tagged schemas. Kept optional for
-  // migration tolerance only; newly-emitted summaries do not populate them. ----
-  /** @deprecated Use `referencedMethods` (role="used"). */
+  // ---- Pipeline diagram (generated on demand) ----
+  pipelineDiagramUrl?: string;  // URL of the generated pipeline flowchart image
+
+  // ---- Legacy fields from pre-role-tagged schemas ----
+  /** @deprecated */
+  references?: PaperReference[];
+  /** @deprecated */
   methods?: string[];
-  /** @deprecated Use `referencedMethods` with role tags. */
+  /** @deprecated */
   citedMethods?: string[];
-  /** @deprecated Use `referencedMethods` with role="extended". */
+  /** @deprecated */
   extendsFrom?: string[];
-  /** @deprecated Use `referencedMethods` with role="compared-baseline". */
+  /** @deprecated */
   baselines?: string[];
-  /** @deprecated Use `referencedDatasets` with role="used". */
+  /** @deprecated */
   datasets?: string[];
-  /** @deprecated Use `referencedDatasets` with role="used". */
+  /** @deprecated */
   benchmarks?: string[];
-  /** @deprecated Subsumed by `referencedMethods`. */
+  /** @deprecated */
   comparedAgainst?: string[];
-  /** @deprecated Subsumed by `referencedMethods`. */
+  /** @deprecated */
   contrastingApproaches?: string[];
-  /** @deprecated Subsumed by `references` + `referencedMethods`. */
+  /** @deprecated */
   citedPapers?: string[];
-  /** @deprecated Folded into `contributions`. */
+  /** @deprecated */
   inputs?: string[];
-  /** @deprecated Folded into `contributions`. */
+  /** @deprecated */
   outputs?: string[];
-  /** @deprecated Folded into `contributions`. */
+  /** @deprecated */
   metrics?: string[];
-  /** @deprecated Folded into `contributions`. */
+  /** @deprecated */
   modelArchitecture?: string;
-  /** @deprecated Folded into `contributions`. */
+  /** @deprecated */
   conclusions?: string[];
-  /** @deprecated Folded into `contributions`. */
+  /** @deprecated */
   keyClaims?: string[];
 };
 
@@ -109,8 +112,13 @@ export type PaperSummary = {
 export type ReferencedItem = {
   name: string;
   role: "used" | "extended" | "compared-baseline" | "cited-only";
-  /** ≤120 char snippet supporting the role assignment. */
   evidence?: string;
+};
+
+export type PipelineStep = {
+  step: number;
+  name: string;
+  description: string;
 };
 
 export type PaperReference = {
@@ -362,7 +370,7 @@ async function writeJSONFile(filePath: string, data: unknown): Promise<void> {
 
 /** Bump this whenever the relations vocabulary or prompt rules change. */
 export const CURRENT_RELATIONS_VOCAB_VERSION = 7;
-export const CURRENT_PROFILE_SCHEMA_VERSION = 10;
+export const CURRENT_PROFILE_SCHEMA_VERSION = 11;
 // v2: emits `representativePaperKey` on every concept and prunes degree=1
 // leaves at canonicalize time (see ConceptCanonicalizer). Bump again for
 // any future shape change in concept output.

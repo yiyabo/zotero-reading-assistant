@@ -3,6 +3,7 @@ import { createHTMLElement } from "../../sidebar/domUtils";
 import { injectSharedStyles } from "../../shared/design-tokens";
 import { renderMarkdown } from "../../modules/utils/markdown";
 import { getLLMManager } from "../../modules/llm/LLMManager";
+import { getPref, PrefKeys } from "../../modules/utils/prefs";
 import {
   KGConceptNode,
   KGConceptType,
@@ -555,6 +556,116 @@ function buildNotes(doc: Document, pageId: string): HTMLElement {
   return section;
 }
 
+function buildPipelineSection(doc: Document, paper: KGPaperState): HTMLElement {
+  const section = buildSection(doc, "方法 Pipeline");
+  const steps = paper.summary?.pipeline;
+  if (!steps || steps.length === 0) {
+    const empty = createHTMLElement(doc, "p", `${config.addonRef}-wiki-empty`);
+    empty.textContent = "暂无 pipeline 拆解";
+    section.appendChild(empty);
+    return section;
+  }
+  const pipeline = createHTMLElement(doc, "div", `${config.addonRef}-wiki-pipeline`);
+  for (const step of steps) {
+    const row = createHTMLElement(doc, "div", `${config.addonRef}-wiki-pipeline-step`);
+    const num = createHTMLElement(doc, "span", `${config.addonRef}-wiki-pipeline-num`);
+    num.textContent = String(step.step);
+    const body = createHTMLElement(doc, "div");
+    const name = createHTMLElement(doc, "strong");
+    name.textContent = step.name;
+    body.appendChild(name);
+    if (step.description) {
+      const desc = createHTMLElement(doc, "p");
+      desc.textContent = step.description;
+      body.appendChild(desc);
+    }
+    row.append(num, body);
+    pipeline.appendChild(row);
+    if (step !== steps[steps.length - 1]) {
+      const arrow = createHTMLElement(doc, "div", `${config.addonRef}-wiki-pipeline-arrow`);
+      arrow.innerHTML = `<svg width="16" height="20" viewBox="0 0 16 20" fill="none"><path d="M8 0v16M2 11l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      pipeline.appendChild(arrow);
+    }
+  }
+  section.appendChild(pipeline);
+  return section;
+}
+
+async function generatePipelineDiagram(paper: KGPaperState): Promise<string> {
+  const apiKey = getPref(PrefKeys.SECRET_KEY) as string;
+  const steps = (paper.summary?.pipeline || []).map((s) => `${s.name}`).join(" → ");
+  const title = paper.title || "research paper";
+  const prompt = steps
+    ? `一张科研论文风格的pipeline流程图，主题是${title}的方法流程。从左到右横向排列以下阶段：${steps}。每个阶段有精美图标和简短英文标签，阶段之间用渐变色连接箭头。背景纯白色，扁平设计+轻微3D质感，类似Nature Methods期刊的精美方法流程图，色彩鲜艳但不杂乱。`
+    : `一张科研论文风格的pipeline流程图，主题是${title}的方法流程。从左到右横向排列多个阶段，每个阶段有精美图标和简短英文标签，阶段之间用渐变色连接箭头。背景纯白色，扁平设计+轻微3D质感，类似Nature Methods期刊的精美方法流程图。`;
+
+  const resp = await fetch("https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "qwen-image-2.0-pro",
+      input: {
+        messages: [
+          {
+            role: "user",
+            content: [{ text: prompt }],
+          },
+        ],
+      },
+      parameters: { n: 1, size: "1280*720" },
+    }),
+  });
+
+  if (!resp.ok) throw new Error(`Image API error: ${resp.status}`);
+  const data = await resp.json() as any;
+  const url = data?.output?.choices?.[0]?.message?.content?.[0]?.image;
+  if (!url) throw new Error("No image URL in response");
+  return url;
+}
+
+function buildDiagramSection(doc: Document, paper: KGPaperState): HTMLElement {
+  const section = buildSection(doc, "流程图");
+  const actions = createHTMLElement(doc, "div", `${config.addonRef}-wiki-actions`);
+
+  const img = doc.createElement("img") as HTMLImageElement;
+  img.style.cssText = "max-width:100%;border-radius:var(--ra-radius-card);margin-top:var(--ra-space-3);display:none;";
+
+  if (paper.summary?.pipelineDiagramUrl) {
+    img.src = paper.summary.pipelineDiagramUrl;
+    img.style.display = "";
+  }
+
+  const genBtn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-action-btn ${config.addonRef}-wiki-action-primary`);
+  genBtn.type = "button";
+  genBtn.textContent = paper.summary?.pipelineDiagramUrl ? "重新生成流程图" : "生成流程图";
+  genBtn.addEventListener("click", async () => {
+    genBtn.disabled = true;
+    genBtn.textContent = "生成中...";
+    try {
+      const url = await generatePipelineDiagram(paper);
+      img.src = url;
+      img.style.display = "";
+      genBtn.textContent = "重新生成流程图";
+      if (paper.summary) paper.summary.pipelineDiagramUrl = url;
+      await kgStore.updatePaper(paper.itemKey, { summary: { ...paper.summary, pipelineDiagramUrl: url } });
+    } catch (e: any) {
+      genBtn.textContent = `生成失败：${e?.message || e}`;
+      setTimeout(() => {
+        genBtn.textContent = paper.summary?.pipelineDiagramUrl ? "重新生成流程图" : "生成流程图";
+      }, 3000);
+    } finally {
+      genBtn.disabled = false;
+    }
+  });
+
+  actions.appendChild(genBtn);
+  section.append(actions, img);
+  return section;
+}
+
 function buildPaperPage(doc: Document, state: KGState, paper: KGPaperState, nav: WikiNavigate): HTMLElement {
   const main = createHTMLElement(doc, "main", `${config.addonRef}-wiki-page`);
   const article = createHTMLElement(doc, "article", `${config.addonRef}-wiki-paper`);
@@ -607,14 +718,16 @@ function buildPaperPage(doc: Document, state: KGState, paper: KGPaperState, nav:
   article.appendChild(buildReferencedItems(doc, "引用的方法", paper.summary?.referencedMethods, state, nav, "method"));
   article.appendChild(buildReferencedItems(doc, "引用的数据集", paper.summary?.referencedDatasets, state, nav, "dataset"));
 
+  const methodology = buildSection(doc, "核心方法论");
+  appendList(methodology, paper.summary?.methodology);
+  article.appendChild(methodology);
+
+  article.appendChild(buildPipelineSection(doc, paper));
+  article.appendChild(buildDiagramSection(doc, paper));
+
   const limitations = buildSection(doc, "限制与注意事项");
   appendList(limitations, paper.summary?.limitations);
   article.appendChild(limitations);
-
-  const refs = buildSection(doc, "关键参考文献");
-  const refItems = (paper.summary?.references || []).slice(0, 18).map((r) => r.title || r.raw).filter(Boolean);
-  appendList(refs, refItems, "暂无可解析 references");
-  article.appendChild(refs);
 
   article.appendChild(buildRelations(doc, state, paper, nav));
   article.appendChild(buildNotes(doc, pageIdForPaper(paper.itemKey)));
@@ -1415,6 +1528,57 @@ function styles(ref: string): string {
     .${ref}-wiki-note-preview td {
       border: 1px solid var(--ra-border);
       padding: 4px 8px;
+    }
+
+    /* ── Pipeline ──────────────────────────────────────────────────────── */
+    .${ref}-wiki-pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .${ref}-wiki-pipeline-step {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--ra-space-3);
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-card);
+      padding: 12px var(--ra-space-3);
+      background: var(--ra-surface);
+    }
+
+    .${ref}-wiki-pipeline-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--ra-brand-soft);
+      color: var(--ra-purple-700);
+      font-weight: var(--ra-fw-bold);
+      font-size: var(--ra-fs-sm);
+      flex-shrink: 0;
+    }
+
+    .${ref}-wiki-pipeline-step strong {
+      display: block;
+      color: var(--ra-purple-900);
+      font-size: var(--ra-fs-base);
+    }
+
+    .${ref}-wiki-pipeline-step p {
+      margin: 2px 0 0;
+      font-size: var(--ra-fs-sm);
+      color: var(--ra-text-muted);
+      line-height: var(--ra-lh-base);
+    }
+
+    .${ref}-wiki-pipeline-arrow {
+      display: flex;
+      justify-content: center;
+      color: var(--ra-purple-400);
+      padding: 2px 0;
     }
   `;
 }

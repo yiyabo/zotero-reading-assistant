@@ -38,6 +38,7 @@ import {
   type KGPaperState,
   type PaperReference,
   type PaperSummary,
+  type PipelineStep,
   type ReferencedItem,
 } from "./KGStore";
 
@@ -830,11 +831,11 @@ const DOMAIN_BUCKET_LIST_TEXT = DOMAIN_BUCKETS.map((b) => b.label).join(" / ") +
 
 const SYSTEM_PROMPT =
   "You are a precise research assistant that extracts structured information from academic papers " +
-  "for a knowledge graph (profile schema v10). You always respond with a single valid JSON object " +
+  "for a knowledge graph (profile schema v11). You always respond with a single valid JSON object " +
   "and no other text — no Markdown, no commentary, no code fences. If a field cannot be reliably " +
   "determined, include it with an empty string \"\" or empty array []. Be concise but specific. " +
   "IMPORTANT: All natural-language values (domain, problem, targetTask, contributions, limitations, " +
-  "keywords, evidence) MUST be written in Simplified Chinese (简体中文), even if the input paper is " +
+  "keywords, evidence, methodology) MUST be written in Simplified Chinese (简体中文), even if the input paper is " +
   "in English. Keep proper nouns, model/dataset names, and well-known acronyms (e.g. BERT, GNN, " +
   "AlphaFold, PDBBind) in their original form.";
 
@@ -847,7 +848,7 @@ function buildAnalysisMessages(content: ExtractedPaperContent): Message[] {
     '  "problem": "1 句话描述这篇论文要解决的核心问题（中文）",',
     '  "targetTask": "具体任务名称，如 protein function prediction、protein-ligand docking；不确定则空字符串",',
     '  "contributions": ["3-5 条中文句子。要具体准确，可含核心架构、输入/输出、指标、主要 finding。避免「提高了准确率」这类空话"],',
-    '  "ownedMethodNames": ["本文自己提出或命名的方法/模型/系统/框架名称。只填本文原创的东西；不要把引用的 AlphaFold/ESMFold/Fpocket 填进来\。没有则 []"],',
+    '  "ownedMethodNames": ["本文自己提出或命名的方法/模型/系统/框架名称。只填本文原创的东西；不要把引用的 AlphaFold/ESMFold/Fpocket 填进来。没有则 []"],',
     '  "proposedDatasets": ["本文自己发布的数据集/benchmark 名称。没有则 []"],',
     '  "referencedMethods": [{',
     '    "name": "本文引用、使用、发展或对比的具体方法/模型/框架名（如 AlphaFold2、Diffusion Transformer）",',
@@ -859,25 +860,32 @@ function buildAnalysisMessages(content: ExtractedPaperContent): Message[] {
     '    "role": "used | extended | compared-baseline | cited-only",',
     '    "evidence": "≤1句中文证据"',
     "  }],",
-    '  "references": [{"raw":"参考文献原文","title":"论文标题，不确定则空字符串","authors":"作者","year":"年份","venue":"期刊/会议","doi":"DOI"}],',
+    '  "pipeline": [{',
+    '    "step": 1,',
+    '    "name": "步骤名称（英文，如 MSA Processing、Pair Representation）",',
+    '    "description": "该步骤的中文简要描述，含关键操作和输入输出"',
+    "  }],",
+    '  "methodology": ["3-5 条核心方法论/设计原则，中文。例如：使用注意力机制捕捉长程依赖、通过扩散模型逐步去噪等"],',
     '  "limitations": ["1-3 条论文承认的限制；没有则 []"],',
     '  "keywords": ["4-8 个中文关键词，专有名词可保留原文"]',
     "}",
     "",
     "--- 关键规则 ---",
-    "1. domain / problem / targetTask / contributions / limitations / keywords 全部输出简体中文。\
+    "1. domain / problem / targetTask / contributions / limitations / keywords / methodology 全部输出简体中文。\
 专有名词、模型名、数据集名、缩写（BERT/AlphaFold/PDBBind）保留原文即可。",
     "2. ownedMethodNames 严格只填本文创造/命名的名称。如果本文只是使用 prior work，请填进 referencedMethods.role=used，不要填进 ownedMethodNames。",
     "3. referencedMethods/referencedDatasets 是这个论文领域连接的核心输出。请尽可能多抽。\
 name 必须是名称（AlphaFold2、RoseTTAFold）而不是描述短语。避免填入「自整数据库」、「大规模蒙马」这类描述。",
-    "4. role 必须是枚举之一：used / extended / compared-baseline / cited-only。\
+    "4. role 必须是枚举之一：used / extended / compared-baseline | cited-only。\
 判决标准：\n\
    - extended：本文明确「基于/改进/泛化/适配/替代」该方法。\n\
    - compared-baseline：作为实验 table 里的 baseline 比较。\n\
    - used：作为 pipeline 部分使用、训练数据、评估 setting。\n\
    - cited-only：仅在 related work / introduction 提及，没有实验交集。",
-    "5. references 字段如果 bibliography 片段可见，请尽量抽出能识别标题/作者/年份的关键论文，优先被正文重点引用的。",
-    "6. 不要输出答案之外的任何文字。",
+    "5. pipeline 是论文方法的核心流程拆解，按执行顺序排列。每个 step 要有明确的名称（英文为主）和中文描述。\
+一般 4-8 步。如果论文没有明确 pipeline 结构，按方法逻辑拆解。",
+    "6. methodology 是论文的核心方法论设计原则，3-5 条，要具体，不要空泛的「使用了深度学习」。",
+    "7. 不要输出答案之外的任何文字。",
     "",
     "Paper:",
     content.title ? `Title: ${content.title}` : "",
@@ -970,10 +978,8 @@ function parseAnalysisResponse(raw: string): PaperSummary {
   }
   if (!parsed || typeof parsed !== "object") return {};
 
-  // v9: 12 focused fields with role-tagged reference lists.
+  // v11: pipeline + methodology replacing references.
   return {
-    // Funnel any LLM-emitted free text into the canonical bucket vocabulary
-    // so GraphCanvas colouring stays consistent across runs.
     domain: normalizeDomain(typeof parsed.domain === "string" ? parsed.domain : undefined),
     problem: typeof parsed.problem === "string" ? parsed.problem.trim() : undefined,
     targetTask: typeof parsed.targetTask === "string" ? parsed.targetTask.trim() : undefined,
@@ -982,7 +988,8 @@ function parseAnalysisResponse(raw: string): PaperSummary {
     proposedDatasets: toStringArray(parsed.proposedDatasets),
     referencedMethods: toReferencedItemArray(parsed.referencedMethods),
     referencedDatasets: toReferencedItemArray(parsed.referencedDatasets),
-    references: toReferenceArray(parsed.references),
+    pipeline: toPipelineStepArray(parsed.pipeline),
+    methodology: toStringArray(parsed.methodology),
     limitations: toStringArray(parsed.limitations),
     keywords: toStringArray(parsed.keywords),
   };
@@ -1012,6 +1019,23 @@ function toReferencedItemArray(value: unknown): ReferencedItem[] | undefined {
     out.push({ name, role, evidence: evidenceRaw || undefined });
     if (out.length >= 60) break;
   }
+  return out.length > 0 ? out : undefined;
+}
+
+function toPipelineStepArray(value: unknown): PipelineStep[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: PipelineStep[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const obj = entry as Record<string, unknown>;
+    const step = typeof obj.step === "number" ? obj.step : out.length + 1;
+    const name = typeof obj.name === "string" ? obj.name.trim() : "";
+    const description = typeof obj.description === "string" ? obj.description.trim() : "";
+    if (!name) continue;
+    out.push({ step, name, description });
+    if (out.length >= 12) break;
+  }
+  out.sort((a, b) => a.step - b.step);
   return out.length > 0 ? out : undefined;
 }
 
