@@ -27,6 +27,7 @@ type WikiNavigate = {
   paper: (itemKey: string) => void;
   concept: (conceptId: string) => void;
   domain: (domain: string) => void;
+  back: () => void;
 };
 
 function setRuntime(win: Window, runtime: WikiRuntime): void {
@@ -202,24 +203,68 @@ function domainCounts(state: KGState): { domain: string; count: number }[] {
     .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain));
 }
 
-function buildHeader(doc: Document, nav: WikiNavigate): HTMLElement {
+function buildHeader(doc: Document, nav: WikiNavigate, route: WikiRoute, state: KGState, canGoBack: boolean): HTMLElement {
   const header = createHTMLElement(doc, "header", `${config.addonRef}-wiki-header`);
   const left = createHTMLElement(doc, "div", `${config.addonRef}-wiki-brand`);
   const logo = createHTMLElement(doc, "img", `${config.addonRef}-wiki-logo`);
   logo.setAttribute("src", `chrome://${config.addonRef}/content/icons/sidebar-logo.svg`);
   logo.setAttribute("alt", "");
+  logo.onerror = () => { (logo as HTMLElement).style.display = "none"; };
   const titles = createHTMLElement(doc, "div");
   const title = createHTMLElement(doc, "h1");
   title.textContent = "知识 Wiki";
-  const subtitle = createHTMLElement(doc, "p");
-  subtitle.textContent = "论文、方法、数据集与领域的个人科研知识库";
-  titles.append(title, subtitle);
+  titles.append(title);
   left.append(logo, titles);
+
+  const navRow = createHTMLElement(doc, "div", `${config.addonRef}-wiki-nav-row`);
+
+  if (canGoBack) {
+    const backBtn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-back-btn`);
+    backBtn.type = "button";
+    backBtn.textContent = "← 返回";
+    backBtn.addEventListener("click", nav.back);
+    navRow.appendChild(backBtn);
+  }
+
+  const crumbs = createHTMLElement(doc, "nav", `${config.addonRef}-wiki-breadcrumb`);
+  const homeCrumb = createHTMLElement(doc, "button", `${config.addonRef}-wiki-crumb`);
+  homeCrumb.type = "button";
+  homeCrumb.textContent = "首页";
+  homeCrumb.addEventListener("click", nav.home);
+  crumbs.appendChild(homeCrumb);
+
+  if (route.type === "paper") {
+    const sep1 = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-sep`);
+    sep1.textContent = "›";
+    crumbs.appendChild(sep1);
+    const paper = state.papers.find((p) => p.itemKey === route.itemKey);
+    const paperCrumb = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-current`);
+    paperCrumb.textContent = paper?.title ? (paper.title.length > 40 ? paper.title.slice(0, 37) + "..." : paper.title) : "论文";
+    crumbs.appendChild(paperCrumb);
+  } else if (route.type === "concept") {
+    const sep1 = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-sep`);
+    sep1.textContent = "›";
+    crumbs.appendChild(sep1);
+    const concept = state.concepts.find((c) => c.id === route.conceptId);
+    const conceptCrumb = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-current`);
+    conceptCrumb.textContent = concept ? conceptLabel(concept, concept.id) : "概念";
+    crumbs.appendChild(conceptCrumb);
+  } else if (route.type === "domain") {
+    const sep1 = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-sep`);
+    sep1.textContent = "›";
+    crumbs.appendChild(sep1);
+    const domainCrumb = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-current`);
+    domainCrumb.textContent = route.domain;
+    crumbs.appendChild(domainCrumb);
+  }
+
+  navRow.appendChild(crumbs);
+
   const home = createHTMLElement(doc, "button", `${config.addonRef}-wiki-home-btn`);
   home.type = "button";
   home.textContent = "首页";
   home.addEventListener("click", nav.home);
-  header.append(left, home);
+  header.append(left, navRow, home);
   return header;
 }
 
@@ -234,34 +279,62 @@ function buildSidebar(doc: Document, state: KGState, route: WikiRoute, nav: Wiki
     side.appendChild(group);
   };
 
+  const searchInput = createHTMLElement(doc, "input", `${config.addonRef}-wiki-search`);
+  searchInput.type = "search";
+  searchInput.placeholder = "搜索论文...";
+  side.appendChild(searchInput);
+
   const paperList = createHTMLElement(doc, "div", `${config.addonRef}-wiki-paper-list`);
-  const papers = [...state.papers].sort((a, b) => {
+  const allPapers = [...state.papers].sort((a, b) => {
     if (a.status === "ready" && b.status !== "ready") return -1;
     if (a.status !== "ready" && b.status === "ready") return 1;
     return String(a.title || "").localeCompare(String(b.title || ""));
   });
-  for (const paper of papers.slice(0, 120)) {
-    const btn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-paper-btn`);
-    btn.type = "button";
-    if (route.type === "paper" && route.itemKey === paper.itemKey) btn.classList.add("active");
-    const name = createHTMLElement(doc, "span", `${config.addonRef}-wiki-paper-title`);
-    name.textContent = paper.title || "（无标题）";
-    const meta = createHTMLElement(doc, "span", `${config.addonRef}-wiki-paper-meta`);
-    meta.textContent = domainOf(paper) || paper.metaLine || paper.status;
-    btn.append(name, meta);
-    btn.addEventListener("click", () => nav.paper(paper.itemKey));
-    paperList.appendChild(btn);
-  }
+
+  const renderPaperList = (filter: string) => {
+    paperList.textContent = "";
+    const lowerFilter = filter.toLowerCase();
+    const filtered = lowerFilter ? allPapers.filter((p) => (p.title || "").toLowerCase().includes(lowerFilter)) : allPapers;
+    const shown = filtered.slice(0, 120);
+    for (const paper of shown) {
+      const btn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-paper-btn`);
+      btn.type = "button";
+      if (route.type === "paper" && route.itemKey === paper.itemKey) btn.classList.add("active");
+      const name = createHTMLElement(doc, "span", `${config.addonRef}-wiki-paper-title`);
+      name.textContent = paper.title || "（无标题）";
+      const meta = createHTMLElement(doc, "span", `${config.addonRef}-wiki-paper-meta`);
+      meta.textContent = domainOf(paper) || paper.metaLine || paper.status;
+      btn.append(name, meta);
+      btn.addEventListener("click", () => nav.paper(paper.itemKey));
+      paperList.appendChild(btn);
+    }
+    if (filtered.length > shown.length) {
+      const hint = createHTMLElement(doc, "p", `${config.addonRef}-wiki-trunc-hint`);
+      hint.textContent = `显示 ${shown.length} / ${filtered.length}`;
+      paperList.appendChild(hint);
+    }
+  };
+  renderPaperList("");
+
+  searchInput.addEventListener("input", () => renderPaperList(searchInput.value));
+
   addGroup("论文页面", paperList);
 
   const conceptList = createHTMLElement(doc, "div", `${config.addonRef}-wiki-mini-list`);
-  for (const concept of state.concepts.slice().sort((a, b) => (b.degree || 0) - (a.degree || 0)).slice(0, 50)) {
+  const allConcepts = state.concepts.slice().sort((a, b) => (b.degree || 0) - (a.degree || 0));
+  const shownConcepts = allConcepts.slice(0, 50);
+  for (const concept of shownConcepts) {
     const btn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-mini-btn`);
     btn.type = "button";
     if (route.type === "concept" && route.conceptId === concept.id) btn.classList.add("active");
     btn.textContent = `${conceptLabel(concept, concept.id)} · ${conceptTypeLabel(concept.type)}`;
     btn.addEventListener("click", () => nav.concept(concept.id));
     conceptList.appendChild(btn);
+  }
+  if (allConcepts.length > shownConcepts.length) {
+    const hint = createHTMLElement(doc, "p", `${config.addonRef}-wiki-trunc-hint`);
+    hint.textContent = `显示 ${shownConcepts.length} / ${allConcepts.length}`;
+    conceptList.appendChild(hint);
   }
   addGroup("方法 / 数据集", conceptList);
 
@@ -482,6 +555,8 @@ function buildNotes(doc: Document, pageId: string): HTMLElement {
     const body = textarea.value.trim();
     if (!body || aiRunning) return;
 
+    if (!doc.defaultView?.confirm("AI 将重写当前备注内容，继续？")) return;
+
     const llm = getLLMManager();
     if (!llm.isReady()) {
       status.textContent = "请先配置 LLM API";
@@ -548,6 +623,8 @@ function buildNotes(doc: Document, pageId: string): HTMLElement {
     timer = host.setTimeout(() => {
       void wikiStore.setNote(pageId, textarea.value).then(() => {
         status.textContent = `已保存：${new Date().toLocaleString()}`;
+      }).catch((e: any) => {
+        status.textContent = `保存失败：${e?.message || e}`;
       });
     }, 450);
   });
@@ -581,11 +658,6 @@ function buildPipelineSection(doc: Document, paper: KGPaperState): HTMLElement {
     }
     row.append(num, body);
     pipeline.appendChild(row);
-    if (step !== steps[steps.length - 1]) {
-      const arrow = createHTMLElement(doc, "div", `${config.addonRef}-wiki-pipeline-arrow`);
-      arrow.innerHTML = `<svg width="16" height="20" viewBox="0 0 16 20" fill="none"><path d="M8 0v16M2 11l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-      pipeline.appendChild(arrow);
-    }
   }
   section.appendChild(pipeline);
   return section;
@@ -744,7 +816,7 @@ function buildConceptPage(doc: Document, state: KGState, concept: KGConceptNode,
   const meta = createHTMLElement(doc, "p");
   meta.textContent = `${conceptTypeLabel(concept.type)} · ${concept.degree || concept.sourcePaperKeys?.length || 0} 篇论文提及`;
   const chips = createHTMLElement(doc, "div", `${config.addonRef}-wiki-chip-row`);
-  chips.append(buildChip(doc, conceptTypeLabel(concept.type)), buildChip(doc, `degree ${concept.degree || 0}`));
+  chips.append(buildChip(doc, conceptTypeLabel(concept.type)), buildChip(doc, `关联 ${concept.degree || 0} 篇`));
   head.append(h, meta, chips);
   article.appendChild(head);
 
@@ -964,6 +1036,97 @@ function styles(ref: string): string {
       box-shadow: var(--ra-shadow-glow);
     }
 
+    /* ── Nav row / breadcrumb / back ─────────────────────────────────────── */
+    .${ref}-wiki-nav-row {
+      display: flex;
+      align-items: center;
+      gap: var(--ra-space-3);
+      min-width: 0;
+      flex: 1;
+    }
+
+    .${ref}-wiki-back-btn {
+      border: none;
+      padding: 4px 10px;
+      border-radius: var(--ra-radius-control);
+      background: transparent;
+      color: var(--ra-purple-600);
+      font-size: var(--ra-fs-sm);
+      font-weight: var(--ra-fw-bold);
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .${ref}-wiki-back-btn:hover {
+      background: var(--ra-brand-soft);
+      color: var(--ra-purple-800);
+    }
+
+    .${ref}-wiki-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      font-size: var(--ra-fs-sm);
+    }
+
+    .${ref}-wiki-crumb {
+      border: none;
+      padding: 0;
+      background: transparent;
+      color: var(--ra-purple-600);
+      font-size: var(--ra-fs-sm);
+      font-family: inherit;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .${ref}-wiki-crumb:hover {
+      color: var(--ra-purple-800);
+      text-decoration: underline;
+    }
+
+    .${ref}-wiki-crumb-sep {
+      color: var(--ra-purple-400);
+      font-size: var(--ra-fs-sm);
+    }
+
+    .${ref}-wiki-crumb-current {
+      color: var(--ra-purple-900);
+      font-weight: var(--ra-fw-bold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Sidebar search ──────────────────────────────────────────────────── */
+    .${ref}-wiki-search {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 7px 10px;
+      margin-bottom: var(--ra-space-3);
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-control);
+      background: var(--ra-surface);
+      color: var(--ra-text);
+      font-size: var(--ra-fs-sm);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .${ref}-wiki-search:focus {
+      border-color: var(--ra-brand);
+      box-shadow: 0 0 0 3px var(--ra-ring);
+    }
+
+    .${ref}-wiki-trunc-hint {
+      margin: var(--ra-space-2) 0 0;
+      font-size: var(--ra-fs-xs);
+      color: var(--ra-purple-500);
+      text-align: center;
+      padding: 4px 0;
+    }
+
     /* ── Action buttons (pill, outlined) ─────────────────────────────────── */
     .${ref}-wiki-actions {
       display: flex;
@@ -1012,6 +1175,12 @@ function styles(ref: string): string {
     .${ref}-wiki-action-primary:hover {
       background: var(--ra-gradient-soft);
       color: var(--ra-purple-700);
+    }
+    .${ref}-wiki-action-btn:disabled,
+    .${ref}-wiki-action-btn[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
     /* ── Body layout ─────────────────────────────────────────────────────── */
@@ -1535,6 +1704,19 @@ function styles(ref: string): string {
       display: flex;
       flex-direction: column;
       gap: 0;
+      position: relative;
+      padding-left: 28px;
+    }
+
+    .${ref}-wiki-pipeline::before {
+      content: "";
+      position: absolute;
+      left: 13px;
+      top: 14px;
+      bottom: 14px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--ra-purple-300), var(--ra-purple-200));
+      border-radius: 1px;
     }
 
     .${ref}-wiki-pipeline-step {
@@ -1545,6 +1727,7 @@ function styles(ref: string): string {
       border-radius: var(--ra-radius-card);
       padding: 12px var(--ra-space-3);
       background: var(--ra-surface);
+      position: relative;
     }
 
     .${ref}-wiki-pipeline-num {
@@ -1559,6 +1742,10 @@ function styles(ref: string): string {
       font-weight: var(--ra-fw-bold);
       font-size: var(--ra-fs-sm);
       flex-shrink: 0;
+      position: absolute;
+      left: -28px;
+      z-index: 1;
+      border: 2px solid var(--ra-surface);
     }
 
     .${ref}-wiki-pipeline-step strong {
@@ -1590,16 +1777,30 @@ export function renderKnowledgeWiki(win: Window, initialRoute: WikiRoute = { typ
 
   const ref = config.addonRef;
   let route: WikiRoute = initialRoute;
+  const history: WikiRoute[] = [];
   let unsubscribeKG: (() => void) | null = null;
   let unsubscribeWiki: (() => void) | null = null;
+
+  root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8B5CF6;font:14px system-ui,sans-serif;">加载中...</div>`;
+
+  const pushRoute = (next: WikiRoute) => {
+    history.push(route);
+    if (history.length > 30) history.shift();
+    route = next;
+    rerender();
+  };
 
   const rerender = () => {
     const state = kgStore.getState();
     const nav: WikiNavigate = {
-      home: () => { route = { type: "home" }; rerender(); },
-      paper: (itemKey: string) => { route = { type: "paper", itemKey }; rerender(); },
-      concept: (conceptId: string) => { route = { type: "concept", conceptId }; rerender(); },
-      domain: (domain: string) => { route = { type: "domain", domain }; rerender(); },
+      home: () => pushRoute({ type: "home" }),
+      paper: (itemKey: string) => pushRoute({ type: "paper", itemKey }),
+      concept: (conceptId: string) => pushRoute({ type: "concept", conceptId }),
+      domain: (domain: string) => pushRoute({ type: "domain", domain }),
+      back: () => {
+        const prev = history.pop();
+        if (prev) { route = prev; rerender(); }
+      },
     };
 
     const style = createHTMLElement(doc, "style");
@@ -1623,7 +1824,7 @@ export function renderKnowledgeWiki(win: Window, initialRoute: WikiRoute = { typ
       body.appendChild(buildHomePage(doc, state, nav));
     }
 
-    shell.append(buildHeader(doc, nav), body);
+    shell.append(buildHeader(doc, nav, currentRoute, state, history.length > 0), body);
     root.replaceChildren(style, shell);
   };
 

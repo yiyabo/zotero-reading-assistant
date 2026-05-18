@@ -89,6 +89,11 @@ export function openKnowledgeWikiWindow(parent?: Window, route?: WikiRoute): Win
     try { win!.removeEventListener("load", onLoad); } catch (_) {}
     try { (win!.document.documentElement as any).setAttribute("windowtype", WINDOW_TYPE); } catch (_) {}
     scheduleRenderer(win!, route || { type: "home" }, "load");
+    try {
+      win!.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "Escape") { try { win!.close(); } catch (_) {} }
+      });
+    } catch (_) {}
   };
   win.addEventListener("load", onLoad);
   scheduleRenderer(win, route || { type: "home" }, "post-open");
