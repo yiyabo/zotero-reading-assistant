@@ -16,6 +16,7 @@ import {
 import { hasPdfAttachment, openItemInReader, openItemInZotero } from "./ZoteroOpeners";
 import { wikiStore } from "./WikiStore";
 import { WikiRoute } from "./WikiWindow";
+import { buildOrganizerPage } from "../collection-organizer/OrganizerPage";
 
 type WikiRuntime = {
   route: WikiRoute;
@@ -27,6 +28,7 @@ type WikiNavigate = {
   paper: (itemKey: string) => void;
   concept: (conceptId: string) => void;
   domain: (domain: string) => void;
+  organizer: () => void;
   back: () => void;
 };
 
@@ -256,6 +258,13 @@ function buildHeader(doc: Document, nav: WikiNavigate, route: WikiRoute, state: 
     const domainCrumb = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-current`);
     domainCrumb.textContent = route.domain;
     crumbs.appendChild(domainCrumb);
+  } else if (route.type === "organizer") {
+    const sep1 = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-sep`);
+    sep1.textContent = "›";
+    crumbs.appendChild(sep1);
+    const orgCrumb = createHTMLElement(doc, "span", `${config.addonRef}-wiki-crumb-current`);
+    orgCrumb.textContent = "论文整理";
+    crumbs.appendChild(orgCrumb);
   }
 
   navRow.appendChild(crumbs);
@@ -348,6 +357,13 @@ function buildSidebar(doc: Document, state: KGState, route: WikiRoute, nav: Wiki
     domains.appendChild(btn);
   }
   addGroup("研究方向", domains);
+
+  const orgBtn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-organizer-btn`);
+  orgBtn.type = "button";
+  orgBtn.textContent = "📑 论文分类整理";
+  orgBtn.addEventListener("click", nav.organizer);
+  side.appendChild(orgBtn);
+
   return side;
 }
 
@@ -633,6 +649,79 @@ function buildNotes(doc: Document, pageId: string): HTMLElement {
   return section;
 }
 
+function buildDataAnalysisSection(doc: Document, paper: KGPaperState): HTMLElement {
+  const section = buildSection(doc, "数据分析");
+  const details = paper.summary?.datasetDetails;
+  const flow = paper.summary?.dataFlow;
+
+  if ((!details || details.length === 0) && (!flow || flow.length === 0)) {
+    const empty = createHTMLElement(doc, "p", `${config.addonRef}-wiki-empty`);
+    empty.textContent = "暂无数据分析信息";
+    section.appendChild(empty);
+    return section;
+  }
+
+  if (details && details.length > 0) {
+    const subTitle = createHTMLElement(doc, "h3");
+    subTitle.textContent = "数据集详情";
+    subTitle.style.cssText = "margin:0 0 var(--ra-space-3);font-size:var(--ra-fs-base);color:var(--ra-purple-800);";
+    section.appendChild(subTitle);
+
+    const grid = createHTMLElement(doc, "div", `${config.addonRef}-wiki-card-grid`);
+    for (const ds of details) {
+      const card = createHTMLElement(doc, "div", `${config.addonRef}-wiki-card`);
+      const h = createHTMLElement(doc, "h3");
+      h.textContent = ds.name;
+      card.appendChild(h);
+      if (ds.description) {
+        const p = createHTMLElement(doc, "p");
+        p.textContent = ds.description;
+        card.appendChild(p);
+      }
+      const tags = createHTMLElement(doc, "div", `${config.addonRef}-wiki-chip-row`);
+      tags.style.cssText = "margin-top:6px;";
+      for (const [label, value] of [["规模", ds.scale], ["格式", ds.format], ["来源", ds.source]] as const) {
+        if (value) {
+          const chip = createHTMLElement(doc, "span", `${config.addonRef}-wiki-chip`);
+          chip.textContent = `${label}: ${value}`;
+          tags.appendChild(chip);
+        }
+      }
+      if (tags.childElementCount > 0) card.appendChild(tags);
+      grid.appendChild(card);
+    }
+    section.appendChild(grid);
+  }
+
+  if (flow && flow.length > 0) {
+    const subTitle2 = createHTMLElement(doc, "h3");
+    subTitle2.textContent = "数据流";
+    subTitle2.style.cssText = "margin:var(--ra-space-4) 0 var(--ra-space-3);font-size:var(--ra-fs-base);color:var(--ra-purple-800);";
+    section.appendChild(subTitle2);
+
+    const pipeline = createHTMLElement(doc, "div", `${config.addonRef}-wiki-pipeline`);
+    for (const step of flow) {
+      const row = createHTMLElement(doc, "div", `${config.addonRef}-wiki-pipeline-step`);
+      const num = createHTMLElement(doc, "span", `${config.addonRef}-wiki-pipeline-num`);
+      num.textContent = String(step.step);
+      const body = createHTMLElement(doc, "div");
+      const name = createHTMLElement(doc, "strong");
+      name.textContent = step.name;
+      body.appendChild(name);
+      if (step.description) {
+        const desc = createHTMLElement(doc, "p");
+        desc.textContent = step.description;
+        body.appendChild(desc);
+      }
+      row.append(num, body);
+      pipeline.appendChild(row);
+    }
+    section.appendChild(pipeline);
+  }
+
+  return section;
+}
+
 function buildPipelineSection(doc: Document, paper: KGPaperState): HTMLElement {
   const section = buildSection(doc, "方法 Pipeline");
   const steps = paper.summary?.pipeline;
@@ -664,36 +753,38 @@ function buildPipelineSection(doc: Document, paper: KGPaperState): HTMLElement {
 }
 
 async function generatePipelineDiagram(paper: KGPaperState): Promise<string> {
-  const apiKey = getPref(PrefKeys.SECRET_KEY) as string;
   const steps = (paper.summary?.pipeline || []).map((s) => `${s.name}`).join(" → ");
   const title = paper.title || "research paper";
   const prompt = steps
-    ? `一张科研论文风格的pipeline流程图，主题是${title}的方法流程。从左到右横向排列以下阶段：${steps}。每个阶段有精美图标和简短英文标签，阶段之间用渐变色连接箭头。背景纯白色，扁平设计+轻微3D质感，类似Nature Methods期刊的精美方法流程图，色彩鲜艳但不杂乱。`
-    : `一张科研论文风格的pipeline流程图，主题是${title}的方法流程。从左到右横向排列多个阶段，每个阶段有精美图标和简短英文标签，阶段之间用渐变色连接箭头。背景纯白色，扁平设计+轻微3D质感，类似Nature Methods期刊的精美方法流程图。`;
+    ? `A research paper style pipeline flowchart for "${title}". Arrange the following stages left to right with beautiful icons and English labels: ${steps}. Gradient arrows connecting stages. White background, flat design with subtle 3D feel, Nature Methods journal style, colorful but clean. 16:9 landscape.`
+    : `A research paper style pipeline flowchart for "${title}". Arrange multiple stages left to right with beautiful icons and English labels. Gradient arrows connecting stages. White background, flat design with subtle 3D feel, Nature Methods journal style, colorful but clean. 16:9 landscape.`;
 
-  const resp = await fetch("https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation", {
+  const imageApiKey = String(getPref(PrefKeys.IMAGE_API_KEY) || "").trim();
+  const imageApi = String(getPref(PrefKeys.IMAGE_API) || "").trim();
+  const imageModel = String(getPref(PrefKeys.IMAGE_MODEL) || "").trim();
+  const imageSize = String(getPref(PrefKeys.IMAGE_SIZE) || "1536x1024").trim() || "1536x1024";
+  if (!imageApiKey || !imageApi || !imageModel) {
+    throw new Error("请先在设置中配置图片生成 API Key、Base URL 和模型");
+  }
+  const imageApiBase = imageApi.replace(/\/+$/, "").replace(/\/v1\/?$/, "");
+  const resp = await fetch(`${imageApiBase}/v1/images/generations`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${imageApiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "qwen-image-2.0-pro",
-      input: {
-        messages: [
-          {
-            role: "user",
-            content: [{ text: prompt }],
-          },
-        ],
-      },
-      parameters: { n: 1, size: "1280*720" },
+      model: imageModel,
+      prompt,
+      n: 1,
+      size: imageSize,
+      response_format: "url",
     }),
   });
 
   if (!resp.ok) throw new Error(`Image API error: ${resp.status}`);
   const data = await resp.json() as any;
-  const url = data?.output?.choices?.[0]?.message?.content?.[0]?.image;
+  const url = data?.data?.[0]?.url;
   if (!url) throw new Error("No image URL in response");
   return url;
 }
@@ -734,6 +825,61 @@ function buildDiagramSection(doc: Document, paper: KGPaperState): HTMLElement {
   });
 
   actions.appendChild(genBtn);
+
+  const copyBtn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-action-btn`);
+  copyBtn.type = "button";
+  copyBtn.textContent = "复制图片";
+  copyBtn.style.display = paper.summary?.pipelineDiagramUrl ? "" : "none";
+  copyBtn.addEventListener("click", async () => {
+    if (!img.src) return;
+    copyBtn.disabled = true;
+    copyBtn.textContent = "复制中...";
+    try {
+      const resp = await fetch(img.src);
+      const blob = await resp.blob();
+      await (doc.defaultView as any)?.navigator.clipboard.write([
+        new (doc.defaultView as any).ClipboardItem({ [blob.type]: blob }),
+      ]);
+      copyBtn.textContent = "已复制";
+      setTimeout(() => { copyBtn.textContent = "复制图片"; }, 1500);
+    } catch (_) {
+      copyBtn.textContent = "复制失败";
+      setTimeout(() => { copyBtn.textContent = "复制图片"; }, 1500);
+    } finally {
+      copyBtn.disabled = false;
+    }
+  });
+
+  const saveBtn = createHTMLElement(doc, "button", `${config.addonRef}-wiki-action-btn`);
+  saveBtn.type = "button";
+  saveBtn.textContent = "保存图片";
+  saveBtn.style.display = paper.summary?.pipelineDiagramUrl ? "" : "none";
+  saveBtn.addEventListener("click", async () => {
+    if (!img.src) return;
+    try {
+      const resp = await fetch(img.src);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = doc.createElement("a") as HTMLAnchorElement;
+      a.href = url;
+      a.download = `${(paper.title || "pipeline").replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_")}_pipeline.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (_) {}
+  });
+
+  actions.append(copyBtn, saveBtn);
+
+  const genBtnHandler = genBtn.onclick;
+  genBtn.addEventListener("click", () => {
+    setTimeout(() => {
+      if (img.src && img.style.display !== "none") {
+        copyBtn.style.display = "";
+        saveBtn.style.display = "";
+      }
+    }, 500);
+  });
+
   section.append(actions, img);
   return section;
 }
@@ -796,6 +942,7 @@ function buildPaperPage(doc: Document, state: KGState, paper: KGPaperState, nav:
 
   article.appendChild(buildPipelineSection(doc, paper));
   article.appendChild(buildDiagramSection(doc, paper));
+  article.appendChild(buildDataAnalysisSection(doc, paper));
 
   const limitations = buildSection(doc, "限制与注意事项");
   appendList(limitations, paper.summary?.limitations);
@@ -1767,6 +1914,202 @@ function styles(ref: string): string {
       color: var(--ra-purple-400);
       padding: 2px 0;
     }
+
+    /* ── Organizer sidebar button ─────────────────────────────────────── */
+    .${ref}-wiki-organizer-btn {
+      display: block;
+      width: 100%;
+      margin-top: var(--ra-space-4);
+      padding: 10px 14px;
+      border: 1px dashed var(--ra-border-strong);
+      border-radius: var(--ra-radius-control);
+      background: var(--ra-surface);
+      color: var(--ra-purple-700);
+      font-weight: var(--ra-fw-bold);
+      font-size: var(--ra-fs-sm);
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .${ref}-wiki-organizer-btn:hover {
+      background: var(--ra-brand-soft);
+      border-color: var(--ra-brand);
+    }
+
+    /* ── Organizer page ───────────────────────────────────────────────── */
+    .${ref}-org-toolbar {
+      display: flex;
+      gap: var(--ra-space-2);
+      margin-top: var(--ra-space-4);
+    }
+
+    .${ref}-org-content {
+      margin-top: var(--ra-space-4);
+    }
+
+    .${ref}-org-status {
+      padding: var(--ra-space-4);
+      color: var(--ra-text-muted);
+      font-size: var(--ra-fs-sm);
+      text-align: center;
+    }
+
+    .${ref}-org-proposal-summary {
+      padding: var(--ra-space-4);
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-card);
+      background: var(--ra-surface);
+      margin-bottom: var(--ra-space-4);
+    }
+
+    .${ref}-org-proposal-summary h3 {
+      margin: 0 0 var(--ra-space-2);
+      color: var(--ra-purple-900);
+    }
+
+    .${ref}-org-section {
+      margin-bottom: var(--ra-space-4);
+    }
+
+    .${ref}-org-section h3 {
+      margin: 0 0 var(--ra-space-3);
+      font-size: var(--ra-fs-base);
+      color: var(--ra-purple-800);
+    }
+
+    .${ref}-org-card {
+      padding: 12px var(--ra-space-3);
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-card);
+      background: var(--ra-surface);
+      margin-bottom: var(--ra-space-2);
+    }
+
+    .${ref}-org-card strong {
+      display: block;
+      color: var(--ra-purple-900);
+    }
+
+    .${ref}-org-card p {
+      margin: 4px 0 0;
+      font-size: var(--ra-fs-sm);
+      color: var(--ra-text-muted);
+    }
+
+    .${ref}-org-parent-tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: var(--ra-radius-pill);
+      background: var(--ra-brand-soft);
+      font-size: var(--ra-fs-xs);
+      font-weight: var(--ra-fw-normal);
+      color: var(--ra-purple-600);
+    }
+
+    .${ref}-org-count {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: var(--ra-fs-xs);
+      color: var(--ra-purple-500);
+    }
+
+    .${ref}-org-move-arrow {
+      font-size: var(--ra-fs-sm);
+      color: var(--ra-purple-600);
+      font-weight: var(--ra-fw-bold);
+    }
+
+    .${ref}-org-actions {
+      display: flex;
+      gap: var(--ra-space-2);
+      margin-top: var(--ra-space-4);
+      padding-top: var(--ra-space-4);
+      border-top: 1px solid var(--ra-border);
+    }
+
+    /* ── Manual drag-and-drop ─────────────────────────────────────────── */
+    .${ref}-org-manual {
+      margin-top: var(--ra-space-3);
+    }
+
+    .${ref}-org-columns {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: var(--ra-space-4);
+    }
+
+    .${ref}-org-column {
+      min-height: 200px;
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-card);
+      background: var(--ra-surface-1);
+      padding: var(--ra-space-3);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .${ref}-org-column.drag-over {
+      border-color: var(--ra-brand);
+      box-shadow: var(--ra-shadow-glow);
+    }
+
+    .${ref}-org-column-title {
+      margin: 0 0 var(--ra-space-2);
+      font-size: var(--ra-fs-sm);
+      font-weight: var(--ra-fw-bold);
+      color: var(--ra-purple-800);
+    }
+
+    .${ref}-org-child-section {
+      margin-top: var(--ra-space-3);
+      padding-top: var(--ra-space-2);
+      border-top: 1px dashed var(--ra-border);
+    }
+
+    .${ref}-org-child-title {
+      margin: 0 0 var(--ra-space-2);
+      font-size: var(--ra-fs-xs);
+      color: var(--ra-purple-600);
+    }
+
+    .${ref}-org-paper-card {
+      padding: 8px 10px;
+      border: 1px solid var(--ra-border);
+      border-radius: var(--ra-radius-control);
+      background: var(--ra-surface);
+      margin-bottom: 6px;
+      cursor: grab;
+      transition: transform 0.1s, box-shadow 0.1s, opacity 0.15s;
+    }
+
+    .${ref}-org-paper-card:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--ra-shadow-sm);
+    }
+
+    .${ref}-org-paper-card.dragging {
+      opacity: 0.4;
+    }
+
+    .${ref}-org-paper-card .${ref}-org-paper-title {
+      display: block;
+      font-size: var(--ra-fs-sm);
+      font-weight: var(--ra-fw-bold);
+      color: var(--ra-purple-900);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .${ref}-org-paper-card .${ref}-org-paper-meta {
+      display: block;
+      font-size: var(--ra-fs-xs);
+      color: var(--ra-purple-600);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   `;
 }
 
@@ -1797,6 +2140,7 @@ export function renderKnowledgeWiki(win: Window, initialRoute: WikiRoute = { typ
       paper: (itemKey: string) => pushRoute({ type: "paper", itemKey }),
       concept: (conceptId: string) => pushRoute({ type: "concept", conceptId }),
       domain: (domain: string) => pushRoute({ type: "domain", domain }),
+      organizer: () => pushRoute({ type: "organizer" }),
       back: () => {
         const prev = history.pop();
         if (prev) { route = prev; rerender(); }
@@ -1820,6 +2164,8 @@ export function renderKnowledgeWiki(win: Window, initialRoute: WikiRoute = { typ
       body.appendChild(concept ? buildConceptPage(doc, state, concept, nav) : buildHomePage(doc, state, nav));
     } else if (currentRoute.type === "domain") {
       body.appendChild(buildDomainPage(doc, state, currentRoute.domain, nav));
+    } else if (currentRoute.type === "organizer") {
+      body.appendChild(buildOrganizerPage(doc, state, nav));
     } else {
       body.appendChild(buildHomePage(doc, state, nav));
     }

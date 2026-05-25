@@ -275,10 +275,12 @@ export type AppendMessageOptions = {
   addonRef: string;
   role: "user" | "assistant";
   content: string | MessageContentPart[];
+  messageIndex?: number;
   /** Called when an "error" assistant message's Retry button is clicked. */
   onRetry?: () => void;
   /** Called when an assistant message's Regenerate button is clicked. */
   onRegenerate?: () => void;
+  onFollowup?: (sourceText: string, messageIndex: number) => void;
   /** Called after the message is appended to scroll the container into view. */
   onScroll?: () => void;
 };
@@ -293,7 +295,7 @@ export type AppendMessageOptions = {
  * For user messages: renders text and any pasted images as thumbnails.
  */
 export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
-  const { container, addonRef, role, content, onRetry, onRegenerate, onScroll } = opts;
+  const { container, addonRef, role, content, messageIndex, onRetry, onRegenerate, onFollowup, onScroll } = opts;
   const doc = container.ownerDocument;
   container.querySelector(`.${addonRef}-empty`)?.remove();
 
@@ -305,13 +307,12 @@ export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
 
   const contentDiv = createHTMLElement(doc, "div", `${addonRef}-message-content`);
 
-  function makeCopyButton(getText: () => string): HTMLButtonElement {
+  function makeCopyButton(getText: () => string, getImageUrl?: () => string | null): HTMLButtonElement {
     const btn = createHTMLElement(doc, "button", `${addonRef}-msg-copy-btn`);
     btn.title = t("copy");
     btn.setAttribute("aria-label", t("copy"));
     btn.textContent = t("copy");
-    btn.addEventListener("click", () => {
-      const text = getText();
+    btn.addEventListener("click", async () => {
       const flashOk = () => {
         btn.textContent = t("copied");
         btn.classList.add(`${addonRef}-msg-copy-btn-copied`);
@@ -320,6 +321,21 @@ export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
           btn.classList.remove(`${addonRef}-msg-copy-btn-copied`);
         }, 1500);
       };
+
+      const imageUrl = getImageUrl?.();
+      if (imageUrl) {
+        try {
+          const resp = await fetch(imageUrl);
+          const blob = await resp.blob();
+          await doc.defaultView?.navigator.clipboard.write([
+            new (doc.defaultView as any).ClipboardItem({ [blob.type]: blob }),
+          ]);
+          flashOk();
+          return;
+        } catch (_) {}
+      }
+
+      const text = getText();
       doc.defaultView?.navigator.clipboard.writeText(text).then(flashOk).catch(() => {
         const ta = doc.createElementNS(HTML_NS, "textarea") as HTMLTextAreaElement;
         ta.value = text;
@@ -334,40 +350,92 @@ export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
   }
 
   if (role === "assistant") {
-    const textContent =
-      typeof content === "string"
-        ? content
-        : content
-            .filter((p) => p.type === "text")
-            .map((p) => (p as { type: "text"; text: string }).text)
-            .join("\n");
-    const parsed = splitReasoningContent(textContent);
-    if (parsed.reasoning) {
-      setThoughtsContent({ messageDiv, content: parsed.reasoning, addonRef });
-    }
-    setAssistantContent({
-      contentDiv,
-      content: parsed.answer || textContent,
-      addonRef,
-    });
+    const isImageMessage = typeof content !== "string" && content.some((p) => p.type === "image_url");
+    let assistantText = "";
 
     const actions = createHTMLElement(doc, "div", `${addonRef}-message-actions`);
-    const isError = /^Warning:|^\u63d0\u793a\uff1a/.test(parsed.answer || textContent);
-    if (isError && onRetry) {
-      actions.classList.add(`${addonRef}-message-actions-visible`);
-      const retryBtn = createHTMLElement(doc, "button", `${addonRef}-retry-btn`);
-      retryBtn.title = t("retry");
-      retryBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"/><path d="M3 21v-5h5"/></svg> ${t("retry")}`;
-      actions.appendChild(retryBtn);
-      retryBtn.addEventListener("click", () => onRetry());
+
+    if (isImageMessage) {
+      const imageParts = (content as MessageContentPart[]).filter((p) => p.type === "image_url");
+      const textParts = (content as MessageContentPart[]).filter((p) => p.type === "text");
+      assistantText = textParts.map((p) => (p as { type: "text"; text: string }).text).join("\n");
+      if (textParts.length > 0) {
+        const textDiv = createHTMLElement(doc, "div", `${addonRef}-message-content`);
+        setAssistantContent({
+          contentDiv: textDiv,
+          content: textParts.map((p) => (p as { type: "text"; text: string }).text).join("\n"),
+          addonRef,
+        });
+        messageDiv.appendChild(textDiv);
+      }
+      const imgContainer = createHTMLElement(doc, "div", `${addonRef}-message-images`);
+      imgContainer.style.cssText = "flex-direction:column;width:100%;";
+      for (const imgPart of imageParts) {
+        const url = (imgPart as { type: "image_url"; image_url: { url: string } }).image_url.url;
+        const imgEl = doc.createElementNS(HTML_NS, "img") as HTMLImageElement;
+        imgEl.src = url;
+        imgEl.className = `${addonRef}-assistant-image`;
+        imgEl.addEventListener("click", () => {
+          const overlay = createHTMLElement(doc, "div", `${addonRef}-image-overlay`);
+          const bigImg = doc.createElementNS(HTML_NS, "img") as HTMLImageElement;
+          bigImg.src = url;
+          overlay.appendChild(bigImg);
+          overlay.addEventListener("click", () => overlay.remove());
+          doc.body.appendChild(overlay);
+        });
+        imgContainer.appendChild(imgEl);
+      }
+      messageDiv.appendChild(imgContainer);
+    } else {
+      const textContent =
+        typeof content === "string"
+          ? content
+          : content
+              .filter((p) => p.type === "text")
+              .map((p) => (p as { type: "text"; text: string }).text)
+              .join("\n");
+      const parsed = splitReasoningContent(textContent);
+      assistantText = parsed.answer || textContent;
+      if (parsed.reasoning) {
+        setThoughtsContent({ messageDiv, content: parsed.reasoning, addonRef });
+      }
+      setAssistantContent({
+        contentDiv,
+        content: parsed.answer || textContent,
+        addonRef,
+      });
+      messageDiv.appendChild(contentDiv);
+
+      const isError = /^Warning:|^\u63d0\u793a\uff1a/.test(parsed.answer || textContent);
+      if (isError && onRetry) {
+        actions.classList.add(`${addonRef}-message-actions-visible`);
+        const retryBtn = createHTMLElement(doc, "button", `${addonRef}-retry-btn`);
+        retryBtn.title = t("retry");
+        retryBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"/><path d="M3 21v-5h5"/></svg> ${t("retry")}`;
+        actions.appendChild(retryBtn);
+        retryBtn.addEventListener("click", () => onRetry());
+      }
     }
+
     actions.appendChild(
       makeCopyButton(() => {
         const el = messageDiv.querySelector(`.${addonRef}-message-content`);
         return el?.textContent || "";
-      }),
+      }, isImageMessage ? (() => {
+        const img = messageDiv.querySelector(`.${addonRef}-assistant-image`) as HTMLImageElement | null;
+        if (!img) return null;
+        return img.src;
+      }) : undefined),
     );
-    if (onRegenerate) {
+    if (onFollowup && !isImageMessage && typeof messageIndex === "number") {
+      const followupBtn = createHTMLElement(doc, "button", `${addonRef}-followup-btn`);
+      followupBtn.title = t("followup-open-tip");
+      followupBtn.setAttribute("aria-label", t("followup-open-tip"));
+      followupBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h8"/><path d="M8 14h5"/></svg> ${t("followup-btn")}`;
+      followupBtn.addEventListener("click", () => onFollowup(assistantText, messageIndex));
+      actions.appendChild(followupBtn);
+    }
+    if (onRegenerate && !isImageMessage) {
       const regenBtn = createHTMLElement(doc, "button", `${addonRef}-regenerate-btn`);
       regenBtn.title = t("regenerate");
       regenBtn.setAttribute("aria-label", t("regenerate"));
@@ -375,7 +443,6 @@ export function appendMessage(opts: AppendMessageOptions): HTMLElement | null {
       regenBtn.addEventListener("click", () => onRegenerate());
       actions.appendChild(regenBtn);
     }
-    messageDiv.appendChild(contentDiv);
     messageDiv.appendChild(actions);
   } else {
     if (typeof content === "string") {

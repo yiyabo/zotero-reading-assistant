@@ -57,6 +57,61 @@
       </vbox>
     </groupbox>
 
+    <groupbox aria-labelledby="readingassistant-image-generation-title">
+      <label><html:h2 id="readingassistant-image-generation-title">Image Generation</html:h2></label>
+
+      <html:p class="readingassistant-pref-description">
+        Configure the OpenAI-compatible image generation endpoint used by chat image requests and Wiki pipeline diagrams. The image API key is stored in Zotero preferences and is not bundled into the add-on.
+      </html:p>
+
+      <vbox class="readingassistant-pref-grid">
+        <hbox class="readingassistant-pref-row" align="center">
+          <label value="Image API Key" control="readingassistant-image-api-key"/>
+          <html:input
+            id="readingassistant-image-api-key"
+            type="password"
+            preference="extensions.zotero.readingassistant.imageApiKey"
+            placeholder="sk-..."
+            autocomplete="off"
+          />
+        </hbox>
+
+        <hbox class="readingassistant-pref-row" align="center">
+          <label value="Image Base URL" control="readingassistant-image-api"/>
+          <html:input
+            id="readingassistant-image-api"
+            type="url"
+            preference="extensions.zotero.readingassistant.imageApi"
+            placeholder="https://new.yxgz.cc"
+            dir="ltr"
+          />
+        </hbox>
+
+        <hbox class="readingassistant-pref-row" align="center">
+          <label value="Image Model" control="readingassistant-image-model"/>
+          <html:input
+            id="readingassistant-image-model"
+            type="text"
+            preference="extensions.zotero.readingassistant.imageModel"
+            placeholder="gpt-image-2"
+            dir="ltr"
+          />
+        </hbox>
+
+        <hbox class="readingassistant-pref-row" align="center">
+          <label value="Image Size" control="readingassistant-image-size"/>
+          <html:select
+            id="readingassistant-image-size"
+            preference="extensions.zotero.readingassistant.imageSize"
+          >
+            <html:option value="1024x1024">1024x1024</html:option>
+            <html:option value="1536x1024">1536x1024</html:option>
+            <html:option value="1024x1536">1024x1536</html:option>
+          </html:select>
+        </hbox>
+      </vbox>
+    </groupbox>
+
     <groupbox aria-labelledby="readingassistant-generation-title">
       <label><html:h2 id="readingassistant-generation-title">Generation</html:h2></label>
 

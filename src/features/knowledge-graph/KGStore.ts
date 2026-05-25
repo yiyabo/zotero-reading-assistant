@@ -62,6 +62,10 @@ export type PaperSummary = {
   pipeline?: PipelineStep[];    // ordered steps of the paper's method pipeline
   methodology?: string[];       // core methodology insights / design principles
 
+  // ---- Data analysis ----
+  datasetDetails?: DatasetDetail[];  // detailed description of each dataset used
+  dataFlow?: DataFlowStep[];         // how data flows through the pipeline
+
   // ---- Citations & supporting context ----
   limitations?: string[];
   keywords?: string[];
@@ -116,6 +120,20 @@ export type ReferencedItem = {
 };
 
 export type PipelineStep = {
+  step: number;
+  name: string;
+  description: string;
+};
+
+export type DatasetDetail = {
+  name: string;
+  description: string;
+  scale?: string;
+  format?: string;
+  source?: string;
+};
+
+export type DataFlowStep = {
   step: number;
   name: string;
   description: string;
@@ -370,7 +388,7 @@ async function writeJSONFile(filePath: string, data: unknown): Promise<void> {
 
 /** Bump this whenever the relations vocabulary or prompt rules change. */
 export const CURRENT_RELATIONS_VOCAB_VERSION = 7;
-export const CURRENT_PROFILE_SCHEMA_VERSION = 11;
+export const CURRENT_PROFILE_SCHEMA_VERSION = 12;
 // v2: emits `representativePaperKey` on every concept and prunes degree=1
 // leaves at canonicalize time (see ConceptCanonicalizer). Bump again for
 // any future shape change in concept output.

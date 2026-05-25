@@ -16,8 +16,17 @@ import {
   clearImagePreview as clearImagePreviewDom,
 } from "./InputDock";
 import {
-  loadConversation as loadConversationFromStore,
-  saveConversation as saveConversationToStore,
+  FollowupThread,
+  PaperConversationsIndex,
+  createConversation as createConversationInStore,
+  deleteConversation as deleteConversationFromStore,
+  getOrCreateFollowupThread,
+  loadMessages as loadMessagesFromStore,
+  loadPaperIndex,
+  renameConversation as renameConversationInStore,
+  saveFollowupThreadMessages,
+  saveMessages as saveMessagesToStore,
+  setActiveConversation as setActiveConversationInStore,
 } from "./ConversationStore";
 import {
   appendMessage as appendMessageDom,
@@ -29,6 +38,15 @@ import {
 } from "./MessageList";
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
+const FOLLOWUP_SIZE_PREF = `${config.addonRef}.followupWindowSize`;
+const FOLLOWUP_MIN_WIDTH = 320;
+const FOLLOWUP_MIN_HEIGHT = 320;
+const FOLLOWUP_EDGE_GAP = 12;
+
+type FollowupWindowSize = {
+  width: number;
+  height: number;
+};
 
 type SectionProps = {
   doc: Document;
@@ -87,7 +105,28 @@ export default class SidebarView {
   private currentTabType: string | undefined;
   private paneKey: string = "";
   private busy = false;
-  private currentConversationKey = "global";
+  // Per-paper conversation routing: currentPaperKey is the parent item key
+  // (or "global" when no item is selected); currentConversationId is the
+  // active conversation thread within that paper. paperIndex caches the
+  // PaperConversationsIndex for the active paper so dropdown refreshes don't
+  // hit disk.
+  private currentPaperKey = "global";
+  private currentConversationId = "";
+  private paperIndex: PaperConversationsIndex | null = null;
+  private conversationBarElement: HTMLDivElement | null = null;
+  private convTitleTextEl: HTMLSpanElement | null = null;
+  private convDeleteBtn: HTMLButtonElement | null = null;
+  private convSwitchBtn: HTMLButtonElement | null = null;
+  private convDropdownEl: HTMLDivElement | null = null;
+  private convDropdownDocListener: ((e: Event) => void) | null = null;
+  private followupOverlayEl: HTMLDivElement | null = null;
+  private followupModalEl: HTMLDivElement | null = null;
+  private followupMessagesEl: HTMLDivElement | null = null;
+  private followupInputEl: HTMLTextAreaElement | null = null;
+  private followupSendBtn: HTMLButtonElement | null = null;
+  private currentFollowupThread: FollowupThread | null = null;
+  private followupBusy = false;
+  private followupResizeCleanup: (() => void) | null = null;
   private pendingImages: string[] = [];
   private userScrolledUp = false;
   private maxHeightCleanup: (() => void) | null = null;
@@ -180,9 +219,25 @@ export default class SidebarView {
             try { self.kgUnsubscribe(); } catch (_) {}
             self.kgUnsubscribe = null;
           }
+          self.closeConvDropdown();
+          self.closeFollowupDialog();
+          self.followupResizeCleanup?.();
+          self.followupResizeCleanup = null;
           self.contextBarElement = null;
           self.kgAddBtn = null;
           self.kgOpenBtn = null;
+          self.conversationBarElement = null;
+          self.convTitleTextEl = null;
+          self.convDeleteBtn = null;
+          self.convSwitchBtn = null;
+          self.convDropdownEl = null;
+          self.followupOverlayEl = null;
+          self.followupModalEl = null;
+          self.followupMessagesEl = null;
+          self.followupInputEl = null;
+          self.followupSendBtn = null;
+          self.currentFollowupThread = null;
+          self.followupBusy = false;
           self.body = null;
           self.messagesContainer = null;
           self.inputElement = null;
@@ -288,7 +343,11 @@ export default class SidebarView {
     const hasLegacyTools = !!root?.querySelector(
       `.${config.addonRef}-quick-actions, .${config.addonRef}-context-meta, .${config.addonRef}-suggestions`
     );
-    if (!root || hasLegacyTools) {
+    // Older panels (built before the multi-conversation feature) lack the
+    // conversation bar; force a rebuild so we don't show a stale panel
+    // without the new switcher.
+    const missingConvBar = !!root && !root.querySelector(`#${config.addonRef}-conversation-bar`);
+    if (!root || hasLegacyTools || missingConvBar) {
       root = this.buildPanel(doc);
       body.replaceChildren(root);
     }
@@ -298,6 +357,26 @@ export default class SidebarView {
     this.inputDockElement = root.querySelector(`#${config.addonRef}-input-dock`);
     this.sendButton = root.querySelector(`#${config.addonRef}-send`);
     this.statusElement = root.querySelector(`#${config.addonRef}-status`);
+
+    // Re-acquire the conversation bar refs from the live DOM in case the
+    // previous mount got torn down (onDestroy nulls them) but the panel
+    // markup was preserved by Zotero across re-renders.
+    this.conversationBarElement = root.querySelector(`#${config.addonRef}-conversation-bar`) as HTMLDivElement | null;
+    if (this.conversationBarElement) {
+      this.convTitleTextEl = this.conversationBarElement.querySelector(
+        `.${config.addonRef}-conv-title-text`,
+      ) as HTMLSpanElement | null;
+      const iconBtns = this.conversationBarElement.querySelectorAll<HTMLButtonElement>(
+        `.${config.addonRef}-conv-icon-btn`,
+      );
+      this.convSwitchBtn = iconBtns[0] || null;
+      this.convDeleteBtn = (this.conversationBarElement.querySelector(
+        `.${config.addonRef}-conv-icon-btn-danger`,
+      ) as HTMLButtonElement) || null;
+      this.convDropdownEl = this.conversationBarElement.querySelector(
+        `#${config.addonRef}-conv-dropdown`,
+      ) as HTMLDivElement | null;
+    }
 
     if (this.messagesContainer) {
       this.messagesContainer.addEventListener("scroll", () => {
@@ -323,6 +402,11 @@ export default class SidebarView {
 
     this.updateStatus(item, tabType);
     this.refreshContextBar();
+    // Final refresh after refs were re-acquired above — switchConversation()
+    // already ran but its refresh was a no-op back then because the bar refs
+    // were null (or pointed to a torn-down DOM). Now that the live elements
+    // are wired up, this paints the right title / button states.
+    this.refreshConversationBar();
     this.renderMessages();
     this.setBusy(this.busy);
     this.updateInputDockMetrics();
@@ -458,7 +542,13 @@ export default class SidebarView {
     );
   }
 
-  private getConversationKey(item?: any): string {
+  /**
+   * Resolve the parent item's key for the given Zotero item — that key
+   * groups all chat threads for the same paper (PDF attachments resolve
+   * to their parent regular item). Falls back to "global" when nothing
+   * useful is selected.
+   */
+  private getPaperKey(item?: any): string {
     try {
       const target = item || this.currentItem;
       if (!target) return "global";
@@ -470,27 +560,58 @@ export default class SidebarView {
     }
   }
 
+  /**
+   * Switch the active chat thread when the selected item changes. Loads the
+   * paper's conversation index, restores the last-active conversation (or
+   * seeds a fresh one when this is the first visit), and re-renders the
+   * messages list.
+   */
   private switchConversation(item?: any): void {
-    const key = this.getConversationKey(item);
-    if (key === this.currentConversationKey) return;
+    const paperKey = this.getPaperKey(item);
+    const index = loadPaperIndex(config.addonRef, paperKey);
 
+    // Seed a default conversation if this paper has never been chatted with.
+    let activeId = index.activeId;
+    if (!activeId) {
+      const meta = createConversationInStore(config.addonRef, paperKey);
+      activeId = meta.id;
+    }
+
+    if (
+      paperKey === this.currentPaperKey &&
+      activeId === this.currentConversationId &&
+      this.paperIndex
+    ) {
+      this.refreshConversationBar();
+      return;
+    }
+
+    // Persist the existing thread before swapping. saveConversation is a
+    // no-op when there's no prior context (e.g. the very first mount).
     this.saveConversation();
-    this.currentConversationKey = key;
-    this.messages = this.loadConversation(key);
-    this.currentMessageDiv = null;
-    this.renderMessages();
-  }
 
-  private loadConversation(key: string): Message[] {
-    return loadConversationFromStore(config.addonRef, key);
+    this.currentPaperKey = paperKey;
+    this.currentConversationId = activeId;
+    this.paperIndex = index;
+    this.messages = loadMessagesFromStore(paperKey, activeId);
+    this.currentMessageDiv = null;
+    this.closeConvDropdown();
+    this.closeFollowupDialog();
+    this.renderMessages();
+    this.refreshConversationBar();
   }
 
   private saveConversation(): void {
-    saveConversationToStore(
-      config.addonRef,
-      this.currentConversationKey,
+    if (!this.currentPaperKey || !this.currentConversationId) return;
+    saveMessagesToStore(
+      this.currentPaperKey,
+      this.currentConversationId,
       this.messages,
     );
+    // Re-read the cached index so freshly-derived titles (e.g. after the
+    // first user message lands) flow into the title button.
+    this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+    this.refreshConversationBar();
   }
 
   private buildPanel(doc: Document): HTMLDivElement {
@@ -539,10 +660,323 @@ export default class SidebarView {
       hasPendingImages: () => this.pendingImages.length > 0,
     });
 
+    const conversationBar = this.buildConversationBar(doc);
     const contextBar = this.buildContextBar(doc);
-    root.append(messages, contextBar, inputDock, scrollBtn);
+    root.append(conversationBar, messages, contextBar, inputDock, scrollBtn);
+
+    this.refreshConversationBar();
 
     return root;
+  }
+
+  /**
+   * Build the conversation switcher bar that sits at the very top of the
+   * panel. It exposes the current conversation title (click to rename), a
+   * "switch" caret that opens a dropdown of the paper's other conversations,
+   * a "new conversation" button, and a "delete current" button.
+   *
+   * All four buttons are no-ops when no paper is selected; refreshConversationBar()
+   * handles the enabled/disabled and label states. The dropdown is rendered
+   * lazily on click so we don't pay for it on every paper switch.
+   */
+  private buildConversationBar(doc: Document): HTMLDivElement {
+    const bar = createHTMLElement(doc, "div", `${config.addonRef}-conversation-bar`);
+    bar.id = `${config.addonRef}-conversation-bar`;
+
+    const titleBtn = createHTMLElement(doc, "button", `${config.addonRef}-conv-title-btn`);
+    titleBtn.type = "button";
+    titleBtn.title = t("conv-title-rename-tip");
+    titleBtn.innerHTML = `
+      <span class="${config.addonRef}-conv-title-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+      <span class="${config.addonRef}-conv-title-text"></span>
+    `;
+    titleBtn.addEventListener("click", () => this.renameCurrentConversation());
+    this.convTitleTextEl = titleBtn.querySelector(`.${config.addonRef}-conv-title-text`) as HTMLSpanElement;
+
+    const switchBtn = createHTMLElement(doc, "button", `${config.addonRef}-conv-icon-btn`);
+    switchBtn.type = "button";
+    switchBtn.title = t("conv-switch-tip");
+    switchBtn.setAttribute("aria-label", t("conv-switch-tip"));
+    switchBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+    switchBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggleConvDropdown();
+    });
+    this.convSwitchBtn = switchBtn;
+
+    const newBtn = createHTMLElement(doc, "button", `${config.addonRef}-conv-icon-btn`);
+    newBtn.type = "button";
+    newBtn.title = t("conv-new-tip");
+    newBtn.setAttribute("aria-label", t("conv-new-tip"));
+    newBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`;
+    newBtn.addEventListener("click", () => this.createNewConversation());
+
+    const deleteBtn = createHTMLElement(doc, "button", `${config.addonRef}-conv-icon-btn`);
+    deleteBtn.type = "button";
+    deleteBtn.classList.add(`${config.addonRef}-conv-icon-btn-danger`);
+    deleteBtn.title = t("conv-delete-tip");
+    deleteBtn.setAttribute("aria-label", t("conv-delete-tip"));
+    deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`;
+    deleteBtn.addEventListener("click", () => this.deleteCurrentConversation());
+    this.convDeleteBtn = deleteBtn;
+
+    const dropdown = createHTMLElement(doc, "div", `${config.addonRef}-conv-dropdown`);
+    dropdown.id = `${config.addonRef}-conv-dropdown`;
+    dropdown.addEventListener("click", (e) => e.stopPropagation());
+    this.convDropdownEl = dropdown;
+
+    bar.append(titleBtn, switchBtn, newBtn, deleteBtn, dropdown);
+    this.conversationBarElement = bar;
+    return bar;
+  }
+
+  /**
+   * Sync the conversation bar's title text, button states, and (if open)
+   * dropdown contents against `paperIndex` + `currentConversationId`. Safe
+   * to call after every persistence event; cheap when nothing changed.
+   */
+  private refreshConversationBar(): void {
+    if (!this.convTitleTextEl) return;
+    const index = this.paperIndex;
+    const current = index?.conversations.find((c) => c.id === this.currentConversationId);
+    const textEl = this.convTitleTextEl;
+    const title = (current?.title || "").trim();
+    if (title) {
+      textEl.textContent = title;
+      textEl.classList.remove(`${config.addonRef}-conv-title-text-empty`);
+    } else {
+      textEl.textContent = t("conv-untitled");
+      textEl.classList.add(`${config.addonRef}-conv-title-text-empty`);
+    }
+
+    const hasMultiple = (index?.conversations.length || 0) > 1;
+    if (this.convSwitchBtn) {
+      this.convSwitchBtn.disabled = !hasMultiple;
+    }
+    if (this.convDeleteBtn) {
+      // Always allow deletion of the current conversation; if it's the last
+      // one we'll auto-create a fresh empty conversation afterwards.
+      this.convDeleteBtn.disabled = !this.currentConversationId;
+    }
+    if (this.convDropdownEl?.classList.contains(`${config.addonRef}-conv-dropdown-open`)) {
+      this.renderConvDropdown();
+    }
+  }
+
+  private toggleConvDropdown(): void {
+    if (!this.convDropdownEl) return;
+    const isOpen = this.convDropdownEl.classList.contains(`${config.addonRef}-conv-dropdown-open`);
+    if (isOpen) {
+      this.closeConvDropdown();
+    } else {
+      this.openConvDropdown();
+    }
+  }
+
+  private openConvDropdown(): void {
+    if (!this.convDropdownEl) return;
+    this.renderConvDropdown();
+    this.convDropdownEl.classList.add(`${config.addonRef}-conv-dropdown-open`);
+
+    // Outside-click handler to close the dropdown. We attach this once per
+    // open and detach it on close to avoid leaks across paper switches.
+    const doc = this.convDropdownEl.ownerDocument;
+    const listener = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && this.conversationBarElement?.contains(target)) return;
+      this.closeConvDropdown();
+    };
+    this.convDropdownDocListener = listener;
+    doc.addEventListener("click", listener, true);
+  }
+
+  private closeConvDropdown(): void {
+    if (this.convDropdownEl) {
+      this.convDropdownEl.classList.remove(`${config.addonRef}-conv-dropdown-open`);
+      this.convDropdownEl.replaceChildren();
+    }
+    if (this.convDropdownDocListener && this.convDropdownEl) {
+      try {
+        this.convDropdownEl.ownerDocument.removeEventListener(
+          "click",
+          this.convDropdownDocListener,
+          true,
+        );
+      } catch (_) { /* ignore */ }
+      this.convDropdownDocListener = null;
+    }
+  }
+
+  private renderConvDropdown(): void {
+    if (!this.convDropdownEl) return;
+    const doc = this.convDropdownEl.ownerDocument;
+    const index = this.paperIndex;
+    this.convDropdownEl.replaceChildren();
+
+    const others = (index?.conversations || [])
+      .filter((c) => c.id !== this.currentConversationId)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+
+    if (others.length === 0) {
+      const empty = createHTMLElement(doc, "div", `${config.addonRef}-conv-dropdown-empty-row`);
+      empty.textContent = t("conv-dropdown-empty");
+      this.convDropdownEl.appendChild(empty);
+      return;
+    }
+
+    for (const meta of others) {
+      const row = createHTMLElement(doc, "div", `${config.addonRef}-conv-dropdown-item`);
+      const titleEl = createHTMLElement(doc, "div", `${config.addonRef}-conv-dropdown-item-title`);
+      const title = (meta.title || "").trim();
+      if (title) {
+        titleEl.textContent = title;
+      } else {
+        titleEl.textContent = t("conv-untitled");
+        titleEl.classList.add(`${config.addonRef}-conv-dropdown-item-title-empty`);
+      }
+      const metaEl = createHTMLElement(doc, "div", `${config.addonRef}-conv-dropdown-item-meta`);
+      metaEl.textContent = this.formatRelativeTime(meta.updatedAt);
+      row.append(titleEl, metaEl);
+      row.addEventListener("click", () => {
+        this.closeConvDropdown();
+        this.switchToConversation(meta.id);
+      });
+      this.convDropdownEl.appendChild(row);
+    }
+  }
+
+  /** Format a timestamp as "刚刚 / N分钟前 / N小时前 / N天前". */
+  private formatRelativeTime(ts: number): string {
+    const diff = Date.now() - ts;
+    if (diff < 60_000) return t("conv-time-just-now");
+    const minutes = Math.floor(diff / 60_000);
+    if (minutes < 60) return t("conv-time-minutes").replace("%N", String(minutes));
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return t("conv-time-hours").replace("%N", String(hours));
+    const days = Math.floor(hours / 24);
+    return t("conv-time-days").replace("%N", String(days));
+  }
+
+  /** Switch the active conversation (within the same paper) to convId. */
+  private switchToConversation(convId: string): void {
+    if (!convId || convId === this.currentConversationId) return;
+    if (!this.currentPaperKey) return;
+    this.saveConversation();
+    setActiveConversationInStore(config.addonRef, this.currentPaperKey, convId);
+    this.currentConversationId = convId;
+    this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+    this.messages = loadMessagesFromStore(this.currentPaperKey, convId);
+    this.currentMessageDiv = null;
+    this.renderMessages();
+    this.refreshConversationBar();
+  }
+
+  /** Spawn a fresh (empty) conversation under the current paper. */
+  private createNewConversation(): void {
+    if (!this.currentPaperKey) return;
+    this.saveConversation();
+    const meta = createConversationInStore(config.addonRef, this.currentPaperKey);
+    this.currentConversationId = meta.id;
+    this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+    this.messages = [];
+    this.currentMessageDiv = null;
+    this.closeConvDropdown();
+    this.renderMessages();
+    this.refreshConversationBar();
+  }
+
+  /**
+   * Delete the current conversation after a system-modal confirmation. If
+   * that was the last conversation in the paper, immediately seed a fresh
+   * empty one so the UI never lands in an empty state with no active id.
+   */
+  private deleteCurrentConversation(): void {
+    if (!this.currentPaperKey || !this.currentConversationId) return;
+    const win = this.body?.ownerDocument?.defaultView as Window | null;
+    if (!this.confirmDelete(win)) return;
+    const newActive = deleteConversationFromStore(
+      config.addonRef,
+      this.currentPaperKey,
+      this.currentConversationId,
+    );
+    this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+    if (newActive) {
+      this.currentConversationId = newActive;
+      this.messages = loadMessagesFromStore(this.currentPaperKey, newActive);
+    } else {
+      // Deleted the last conversation — seed a fresh empty one.
+      const meta = createConversationInStore(config.addonRef, this.currentPaperKey);
+      this.currentConversationId = meta.id;
+      this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+      this.messages = [];
+    }
+    this.currentMessageDiv = null;
+    this.closeConvDropdown();
+    this.renderMessages();
+    this.refreshConversationBar();
+  }
+
+  /** Inline-prompt the user for a new title for the current conversation. */
+  private renameCurrentConversation(): void {
+    if (!this.currentPaperKey || !this.currentConversationId) return;
+    const current = this.paperIndex?.conversations.find(
+      (c) => c.id === this.currentConversationId,
+    );
+    const win = this.body?.ownerDocument?.defaultView as Window | null;
+    const proposed = this.promptForTitle(win, current?.title || "");
+    if (proposed === null) return;
+    renameConversationInStore(
+      config.addonRef,
+      this.currentPaperKey,
+      this.currentConversationId,
+      proposed,
+    );
+    this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+    this.refreshConversationBar();
+  }
+
+  /**
+   * Show a system modal confirmation for delete. Falls back to `true` if the
+   * prompt service is unreachable (very old Zotero / sandboxed contexts).
+   */
+  private confirmDelete(win: Window | null): boolean {
+    try {
+      const Svc: any = (Services as any).prompt;
+      if (!Svc?.confirm) return true;
+      return Svc.confirm(
+        win,
+        t("conv-delete-confirm-title"),
+        t("conv-delete-confirm"),
+      );
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /**
+   * Show a system modal prompt for the new conversation title. Returns the
+   * trimmed string (possibly empty to clear the title) or null when the user
+   * cancels. Falls back to a sensible default if the prompt service is
+   * unreachable.
+   */
+  private promptForTitle(win: Window | null, current: string): string | null {
+    try {
+      const Svc: any = (Services as any).prompt;
+      if (!Svc?.prompt) return null;
+      const result = { value: current };
+      const ok = Svc.prompt(
+        win,
+        t("conv-rename-prompt-title"),
+        t("conv-rename-prompt"),
+        result,
+        null,
+        { value: false },
+      );
+      if (!ok) return null;
+      return String(result.value || "").trim();
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
@@ -732,6 +1166,11 @@ export default class SidebarView {
     this.userScrolledUp = false;
     this.body?.querySelector(`.${config.addonRef}-scroll-bottom-btn`)?.classList.remove("visible");
 
+    if (this.isImageGenerationIntent(userText)) {
+      await this.handleImageGeneration(userText);
+      return;
+    }
+
     let content: string | MessageContentPart[];
     if (images.length > 0) {
       const parts: MessageContentPart[] = [];
@@ -799,6 +1238,7 @@ export default class SidebarView {
             content: parsed.answer || fullResponse,
           });
           this.saveConversation();
+          this.renderMessages();
         },
         onError: (error: Error) => {
           completed = true;
@@ -814,6 +1254,7 @@ export default class SidebarView {
           content: parsed.answer || fullResponse,
         });
         this.saveConversation();
+        this.renderMessages();
       }
     } catch (error: any) {
       this.updateMessageContent(assistantMessageDiv, this.formatErrorMessage(error.message || String(error)), true);
@@ -821,6 +1262,141 @@ export default class SidebarView {
       this.currentMessageDiv = null;
       this.setBusy(false);
     }
+  }
+
+  private async handleImageGeneration(prompt: string) {
+    if (!prompt) return;
+
+    this.messages.push({ role: "user", content: prompt });
+    this.saveConversation();
+    this.appendMessage("user", prompt);
+
+    this.setBusy(true);
+
+    const container = this.messagesContainer;
+    if (!container) { this.setBusy(false); return; }
+    const doc = container.ownerDocument;
+
+    const msgDiv = doc.createElement("div");
+    msgDiv.className = `${config.addonRef}-message assistant`;
+
+    const labelDiv = doc.createElement("div");
+    labelDiv.className = `${config.addonRef}-message-label`;
+    labelDiv.textContent = "Assistant";
+
+    const contentEl = doc.createElement("div");
+    contentEl.className = `${config.addonRef}-message-content`;
+    contentEl.style.cssText = "width:100%;padding:0;background:transparent;border:none;box-shadow:none;";
+
+    const mosaic = doc.createElement("div");
+    mosaic.className = `${config.addonRef}-mosaic-loader`;
+    mosaic.innerHTML = Array.from({ length: 64 }, () =>
+      `<div class="${config.addonRef}-mosaic-tile"></div>`
+    ).join("");
+    contentEl.appendChild(mosaic);
+    msgDiv.append(labelDiv, contentEl);
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+
+    try {
+      const imageApiKey = String(getPref(PrefKeys.IMAGE_API_KEY) || "").trim();
+      const imageApi = String(getPref(PrefKeys.IMAGE_API) || "").trim();
+      const imageModel = String(getPref(PrefKeys.IMAGE_MODEL) || "").trim();
+      const imageSize = String(getPref(PrefKeys.IMAGE_SIZE) || "1024x1024").trim() || "1024x1024";
+      if (!imageApiKey || !imageApi || !imageModel) {
+        throw new Error("请先在设置中配置图片生成 API Key、Base URL 和模型");
+      }
+      const imageApiBase = imageApi.replace(/\/+$/, "").replace(/\/v1\/?$/, "");
+      const resp = await fetch(`${imageApiBase}/v1/images/generations`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${imageApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: imageModel,
+          prompt,
+          n: 1,
+          size: imageSize,
+          response_format: "url",
+        }),
+      });
+
+      if (!resp.ok) throw new Error(`Image API error: ${resp.status}`);
+      const data = await resp.json() as any;
+      const url = data?.data?.[0]?.url;
+      if (!url) throw new Error("No image returned");
+
+      contentEl.textContent = "";
+      const imgEl = doc.createElement("img") as HTMLImageElement;
+      imgEl.src = url;
+      imgEl.className = `${config.addonRef}-assistant-image`;
+      imgEl.addEventListener("click", () => {
+        const overlay = doc.createElement("div");
+        overlay.className = `${config.addonRef}-image-overlay`;
+        const bigImg = doc.createElement("img") as HTMLImageElement;
+        bigImg.src = url;
+        overlay.appendChild(bigImg);
+        overlay.addEventListener("click", () => overlay.remove());
+        doc.body.appendChild(overlay);
+      });
+      contentEl.appendChild(imgEl);
+
+      const actions = doc.createElement("div");
+      actions.className = `${config.addonRef}-message-actions`;
+
+      const copyBtn = doc.createElement("button");
+      copyBtn.className = `${config.addonRef}-msg-copy-btn`;
+      copyBtn.textContent = "复制图片";
+      copyBtn.addEventListener("click", async () => {
+        try {
+          const r = await fetch(url);
+          const blob = await r.blob();
+          await (doc.defaultView as any).navigator.clipboard.write([
+            new (doc.defaultView as any).ClipboardItem({ [blob.type]: blob }),
+          ]);
+          copyBtn.textContent = "已复制";
+          setTimeout(() => { copyBtn.textContent = "复制图片"; }, 1500);
+        } catch (_) {
+          copyBtn.textContent = "复制失败";
+          setTimeout(() => { copyBtn.textContent = "复制图片"; }, 1500);
+        }
+      });
+
+      actions.appendChild(copyBtn);
+      msgDiv.appendChild(actions);
+
+      this.messages.push({
+        role: "assistant",
+        content: [{ type: "image_url", image_url: { url } }],
+      });
+      this.saveConversation();
+    } catch (error: any) {
+      contentEl.textContent = `图片生成失败：${error.message || error}`;
+    } finally {
+      this.setBusy(false);
+    }
+  }
+
+  private isImageGenerationIntent(text: string): boolean {
+    const t = text.trim();
+    const patterns = [
+      /生成.*图[片画]/,
+      /画一?[张个份]/,
+      /帮我画/,
+      /帮我生成.*图/,
+      /create.*image/i,
+      /generate.*image/i,
+      /^draw\s/i,
+      /画.*示意图/,
+      /画.*流程图/,
+      /画.*架构图/,
+      /画.*结构图/,
+      /画.*插图/,
+      /出一?张.*图/,
+      /来一?张.*图/,
+    ];
+    return patterns.some((p) => p.test(t));
   }
 
   private buildMessagesForRequest(paperContext: PaperContextResult): Message[] {
@@ -842,6 +1418,52 @@ export default class SidebarView {
         ].join("\n"),
       },
       ...this.messages,
+    ];
+
+    if (images.length > 0) {
+      const lastMsgIndex = result.length - 1;
+      const lastMsg = result[lastMsgIndex];
+      if (lastMsg && lastMsg.role === "user") {
+        const contentParts: MessageContentPart[] = [];
+        if (typeof lastMsg.content === "string") {
+          contentParts.push({ type: "text", text: lastMsg.content });
+        } else if (Array.isArray(lastMsg.content)) {
+          contentParts.push(...lastMsg.content);
+        }
+        for (const img of images) {
+          contentParts.push({ type: "image_url", image_url: { url: img } });
+        }
+        lastMsg.content = contentParts;
+      }
+    }
+
+    return result;
+  }
+
+  private buildFollowupMessagesForRequest(
+    thread: FollowupThread,
+    paperContext: PaperContextResult,
+  ): Message[] {
+    const { text, images } = paperContext;
+    const mainContext = this.messages
+      .slice(0, Math.max(0, thread.parentMessageIndex + 1))
+      .slice(-12);
+    const result: Message[] = [
+      {
+        role: "system",
+        content: [
+          "You are a reading assistant inside Zotero.",
+          "The user is asking a local follow-up question about one specific assistant answer from the main conversation.",
+          "Keep this local thread focused on the quoted source answer. Explain concepts step by step and preserve continuity with the main paper context.",
+          "Do not assume the local follow-up should replace or continue the main conversation unless the user explicitly asks.",
+          "Current paper:",
+          text || "[No text content available]",
+          "Quoted source answer:",
+          thread.anchorText || "[No quoted answer available]",
+        ].join("\n"),
+      },
+      ...mainContext,
+      ...thread.messages,
     ];
 
     if (images.length > 0) {
@@ -933,6 +1555,7 @@ export default class SidebarView {
             content: parsed.answer || fullResponse,
           });
           this.saveConversation();
+          this.renderMessages();
         },
         onError: (error: Error) => {
           completed = true;
@@ -948,6 +1571,7 @@ export default class SidebarView {
           content: parsed.answer || fullResponse,
         });
         this.saveConversation();
+        this.renderMessages();
       }
     } catch (error: any) {
       this.updateMessageContent(assistantMessageDiv, this.formatErrorMessage(error.message || String(error)), true);
@@ -1090,6 +1714,7 @@ export default class SidebarView {
           content: parsed.answer || fullResponse,
         });
         this.saveConversation();
+        this.renderMessages();
       }
     } catch (error: any) {
       this.hideProgress();
@@ -1135,16 +1760,17 @@ export default class SidebarView {
       return;
     }
 
-    for (const message of this.messages) {
+    this.messages.forEach((message, index) => {
       if (message.role === "user" || message.role === "assistant") {
-        this.appendMessage(message.role, message.content);
+        this.appendMessage(message.role, message.content, index);
       }
-    }
+    });
   }
 
   private appendMessage(
     role: "user" | "assistant",
     content: string | MessageContentPart[],
+    messageIndex?: number,
   ): HTMLElement | null {
     if (!this.messagesContainer) return null;
     return appendMessageDom({
@@ -1152,10 +1778,382 @@ export default class SidebarView {
       addonRef: config.addonRef,
       role,
       content,
+      messageIndex,
       onRetry: () => this.retryLastMessage(),
       onRegenerate: () => this.regenerateLastResponse(),
+      onFollowup: role === "assistant"
+        ? (sourceText, index) => this.openFollowupDialog(index, sourceText)
+        : undefined,
       onScroll: () => this.scrollMessagesToBottom(),
     });
+  }
+
+  private openFollowupDialog(parentMessageIndex: number, sourceText: string): void {
+    if (this.busy || this.followupBusy) {
+      showToast("Reading Assistant", t("followup-busy"), 2500);
+      return;
+    }
+    if (!this.currentPaperKey || !this.currentConversationId) return;
+    const thread = getOrCreateFollowupThread(
+      this.currentPaperKey,
+      this.currentConversationId,
+      parentMessageIndex,
+      sourceText || this.messageContentToText(this.messages[parentMessageIndex]?.content),
+    );
+    this.currentFollowupThread = thread;
+    this.ensureFollowupDialog();
+    this.renderFollowupDialog();
+    this.followupOverlayEl?.classList.add(`${config.addonRef}-followup-overlay-open`);
+    this.applyFollowupWindowSize();
+    this.followupInputEl?.focus();
+  }
+
+  private ensureFollowupDialog(): void {
+    if (this.followupOverlayEl || !this.body) return;
+    const root = this.body.querySelector(`#${config.addonRef}-panel`) as HTMLElement | null;
+    const host = root || this.body;
+    const doc = this.body.ownerDocument;
+
+    const overlay = createHTMLElement(doc, "div", `${config.addonRef}-followup-overlay`);
+    overlay.id = `${config.addonRef}-followup-overlay`;
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) this.closeFollowupDialog();
+    });
+
+    const modal = createHTMLElement(doc, "div", `${config.addonRef}-followup-modal`);
+    const header = createHTMLElement(doc, "div", `${config.addonRef}-followup-header`);
+    const title = createHTMLElement(doc, "div", `${config.addonRef}-followup-title`);
+    title.textContent = t("followup-title");
+    const closeBtn = createHTMLElement(doc, "button", `${config.addonRef}-followup-close`);
+    closeBtn.type = "button";
+    closeBtn.title = t("close");
+    closeBtn.setAttribute("aria-label", t("close"));
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", () => this.closeFollowupDialog());
+    header.append(title, closeBtn);
+
+    const anchor = createHTMLElement(doc, "div", `${config.addonRef}-followup-anchor`);
+    const anchorLabel = createHTMLElement(doc, "div", `${config.addonRef}-followup-anchor-label`);
+    anchorLabel.textContent = t("followup-source-label");
+    const anchorText = createHTMLElement(doc, "div", `${config.addonRef}-followup-anchor-text`);
+    anchorText.id = `${config.addonRef}-followup-anchor-text`;
+    anchor.append(anchorLabel, anchorText);
+
+    const messages = createHTMLElement(doc, "div", `${config.addonRef}-followup-messages`);
+    messages.id = `${config.addonRef}-followup-messages`;
+    messages.addEventListener("click", (e: Event) => {
+      const target = (e.target as HTMLElement).closest?.(`.${config.addonRef}-page-citation`);
+      if (!target) return;
+      const page = parseInt((target as HTMLElement).getAttribute("data-page") || "0");
+      if (page > 0) navigateToPDFPage(page);
+    });
+
+    const dock = createHTMLElement(doc, "div", `${config.addonRef}-followup-input-dock`);
+    const input = createHTMLElement(doc, "textarea", `${config.addonRef}-followup-input`);
+    input.id = `${config.addonRef}-followup-input`;
+    input.placeholder = t("followup-placeholder");
+    input.rows = 2;
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        this.handleFollowupInput();
+      }
+    });
+    input.addEventListener("input", () => this.autoGrowFollowupInput());
+    const send = createHTMLElement(doc, "button", `${config.addonRef}-followup-send`);
+    send.type = "button";
+    send.textContent = t("send");
+    send.addEventListener("click", () => this.handleFollowupInput());
+    dock.append(input, send);
+
+    const resizeHandle = createHTMLElement(doc, "div", `${config.addonRef}-followup-resize-handle`);
+    resizeHandle.title = t("followup-resize-tip");
+    resizeHandle.setAttribute("aria-label", t("followup-resize-tip"));
+    resizeHandle.addEventListener("mousedown", (e: MouseEvent) => this.startFollowupResize(e));
+
+    modal.append(header, anchor, messages, dock, resizeHandle);
+    overlay.appendChild(modal);
+    host.appendChild(overlay);
+
+    this.followupOverlayEl = overlay;
+    this.followupModalEl = modal;
+    this.followupMessagesEl = messages;
+    this.followupInputEl = input;
+    this.followupSendBtn = send;
+  }
+
+  private applyFollowupWindowSize(): void {
+    const overlay = this.followupOverlayEl;
+    const modal = this.followupModalEl;
+    if (!overlay || !modal) return;
+    const maxWidth = Math.max(240, overlay.clientWidth - FOLLOWUP_EDGE_GAP * 2);
+    const maxHeight = Math.max(260, overlay.clientHeight - FOLLOWUP_EDGE_GAP * 2);
+    const minWidth = Math.min(FOLLOWUP_MIN_WIDTH, maxWidth);
+    const minHeight = Math.min(FOLLOWUP_MIN_HEIGHT, maxHeight);
+    const saved = this.loadFollowupWindowSize();
+    const width = this.clampFollowupSize(saved?.width || maxWidth, minWidth, maxWidth);
+    const height = this.clampFollowupSize(saved?.height || Math.min(560, maxHeight), minHeight, maxHeight);
+    modal.style.width = `${width}px`;
+    modal.style.height = `${height}px`;
+    modal.style.left = `${Math.max(FOLLOWUP_EDGE_GAP, Math.floor((overlay.clientWidth - width) / 2))}px`;
+    modal.style.top = `${Math.max(FOLLOWUP_EDGE_GAP, Math.floor((overlay.clientHeight - height) / 2))}px`;
+  }
+
+  private startFollowupResize(e: MouseEvent): void {
+    const overlay = this.followupOverlayEl;
+    const modal = this.followupModalEl;
+    if (!overlay || !modal) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.followupResizeCleanup?.();
+
+    const doc = modal.ownerDocument;
+    const win = doc.defaultView;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = modal.offsetWidth;
+    const startHeight = modal.offsetHeight;
+    const startLeft = modal.offsetLeft;
+    const startTop = modal.offsetTop;
+    const maxWidth = Math.max(240, overlay.clientWidth - startLeft - FOLLOWUP_EDGE_GAP);
+    const maxHeight = Math.max(260, overlay.clientHeight - startTop - FOLLOWUP_EDGE_GAP);
+    const minWidth = Math.min(FOLLOWUP_MIN_WIDTH, maxWidth);
+    const minHeight = Math.min(FOLLOWUP_MIN_HEIGHT, maxHeight);
+
+    modal.classList.add(`${config.addonRef}-followup-modal-resizing`);
+
+    const onMouseMove = (event: MouseEvent) => {
+      event.preventDefault();
+      const width = this.clampFollowupSize(startWidth + event.clientX - startX, minWidth, maxWidth);
+      const height = this.clampFollowupSize(startHeight + event.clientY - startY, minHeight, maxHeight);
+      modal.style.width = `${width}px`;
+      modal.style.height = `${height}px`;
+      this.scrollFollowupToBottom();
+    };
+
+    const finishResize = () => {
+      const width = modal.offsetWidth;
+      const height = modal.offsetHeight;
+      doc.removeEventListener("mousemove", onMouseMove);
+      doc.removeEventListener("mouseup", onMouseUp);
+      win?.removeEventListener("blur", onMouseUp);
+      modal.classList.remove(`${config.addonRef}-followup-modal-resizing`);
+      this.followupResizeCleanup = null;
+      this.saveFollowupWindowSize({ width, height });
+    };
+
+    const onMouseUp = () => finishResize();
+    doc.addEventListener("mousemove", onMouseMove);
+    doc.addEventListener("mouseup", onMouseUp);
+    win?.addEventListener("blur", onMouseUp);
+    this.followupResizeCleanup = finishResize;
+  }
+
+  private loadFollowupWindowSize(): FollowupWindowSize | null {
+    const raw = getPref(FOLLOWUP_SIZE_PREF);
+    if (typeof raw !== "string" || !raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as FollowupWindowSize;
+      if (!Number.isFinite(parsed.width) || !Number.isFinite(parsed.height)) return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  private saveFollowupWindowSize(size: FollowupWindowSize): void {
+    setPref(FOLLOWUP_SIZE_PREF, JSON.stringify({
+      width: Math.round(size.width),
+      height: Math.round(size.height),
+    }));
+  }
+
+  private clampFollowupSize(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  private renderFollowupDialog(): void {
+    const thread = this.currentFollowupThread;
+    if (!thread || !this.followupMessagesEl || !this.followupOverlayEl) return;
+    const anchorText = this.followupOverlayEl.querySelector(`#${config.addonRef}-followup-anchor-text`) as HTMLElement | null;
+    if (anchorText) anchorText.textContent = thread.anchorText || t("followup-source-empty");
+    this.renderFollowupMessages();
+    this.setFollowupBusy(this.followupBusy);
+  }
+
+  private renderFollowupMessages(): void {
+    const thread = this.currentFollowupThread;
+    const container = this.followupMessagesEl;
+    if (!thread || !container) return;
+    container.replaceChildren();
+    if (thread.messages.length === 0) {
+      const empty = createHTMLElement(container.ownerDocument, "div", `${config.addonRef}-followup-empty`);
+      empty.textContent = t("followup-empty");
+      container.appendChild(empty);
+      return;
+    }
+    for (const message of thread.messages) {
+      if (message.role !== "user" && message.role !== "assistant") continue;
+      appendMessageDom({
+        container,
+        addonRef: config.addonRef,
+        role: message.role,
+        content: message.content,
+        onScroll: () => this.scrollFollowupToBottom(),
+      });
+    }
+    this.scrollFollowupToBottom();
+  }
+
+  private async handleFollowupInput(): Promise<void> {
+    const thread = this.currentFollowupThread;
+    const input = this.followupInputEl;
+    if (!thread || !input || this.followupBusy || this.busy) return;
+    const userText = input.value.trim();
+    if (!userText) return;
+
+    input.value = "";
+    this.autoGrowFollowupInput();
+    thread.messages.push({ role: "user", content: userText });
+    const saved = saveFollowupThreadMessages(thread.paperKey, thread.conversationId, thread.id, thread.messages);
+    if (saved) this.currentFollowupThread = saved;
+    this.renderFollowupMessages();
+
+    const llmManager = getLLMManager();
+    if (!llmManager.isReady()) {
+      this.currentFollowupThread?.messages.push({ role: "assistant", content: t("message-llm-not-configured") });
+      const savedNotReady = saveFollowupThreadMessages(thread.paperKey, thread.conversationId, thread.id, this.currentFollowupThread?.messages || []);
+      if (savedNotReady) this.currentFollowupThread = savedNotReady;
+      this.renderFollowupMessages();
+      return;
+    }
+
+    const container = this.followupMessagesEl;
+    if (!container) return;
+    const assistantMessageDiv = createMessagePlaceholderDom({
+      container,
+      addonRef: config.addonRef,
+      onScroll: () => this.scrollFollowupToBottom(),
+    });
+    this.setFollowupBusy(true);
+
+    let fullResponse = "";
+    let completed = false;
+    try {
+      const paperContext = await buildCurrentPaperContext({
+        query: userText,
+        item: this.currentItem,
+        deepRead: false,
+      });
+      const activeThread = this.currentFollowupThread || thread;
+      const messagesForRequest = this.buildFollowupMessagesForRequest(activeThread, paperContext);
+
+      await llmManager.chat(messagesForRequest, {
+        onStart: () => {},
+        onToken: (token: string) => {
+          fullResponse += token;
+          updateMessageContentDom({
+            messageDiv: assistantMessageDiv,
+            addonRef: config.addonRef,
+            content: fullResponse,
+            onScroll: () => this.scrollFollowupToBottom(),
+          });
+        },
+        onReasoningToken: (token: string) => {
+          updateReasoningContentDom({
+            messageDiv: assistantMessageDiv,
+            token,
+            addonRef: config.addonRef,
+            onScroll: () => this.scrollFollowupToBottom(),
+          });
+        },
+        onComplete: (text: string) => {
+          completed = true;
+          fullResponse = text;
+          updateMessageContentDom({
+            messageDiv: assistantMessageDiv,
+            addonRef: config.addonRef,
+            content: fullResponse,
+            isComplete: true,
+            onScroll: () => this.scrollFollowupToBottom(),
+          });
+          const parsed = splitReasoningContent(fullResponse);
+          const targetThread = this.currentFollowupThread || thread;
+          targetThread.messages.push({
+            role: "assistant",
+            content: parsed.answer || fullResponse,
+          });
+          const savedThread = saveFollowupThreadMessages(targetThread.paperKey, targetThread.conversationId, targetThread.id, targetThread.messages);
+          if (savedThread) this.currentFollowupThread = savedThread;
+          this.renderFollowupMessages();
+        },
+        onError: (error: Error) => {
+          completed = true;
+          updateMessageContentDom({
+            messageDiv: assistantMessageDiv,
+            addonRef: config.addonRef,
+            content: this.formatErrorMessage(error.message),
+            isComplete: true,
+            onScroll: () => this.scrollFollowupToBottom(),
+          });
+        },
+      });
+
+      if (!completed && fullResponse) {
+        const parsed = splitReasoningContent(fullResponse);
+        const targetThread = this.currentFollowupThread || thread;
+        targetThread.messages.push({
+          role: "assistant",
+          content: parsed.answer || fullResponse,
+        });
+        const savedThread = saveFollowupThreadMessages(targetThread.paperKey, targetThread.conversationId, targetThread.id, targetThread.messages);
+        if (savedThread) this.currentFollowupThread = savedThread;
+        this.renderFollowupMessages();
+      }
+    } catch (error: any) {
+      updateMessageContentDom({
+        messageDiv: assistantMessageDiv,
+        addonRef: config.addonRef,
+        content: this.formatErrorMessage(error.message || String(error)),
+        isComplete: true,
+        onScroll: () => this.scrollFollowupToBottom(),
+      });
+    } finally {
+      this.setFollowupBusy(false);
+    }
+  }
+
+  private closeFollowupDialog(): void {
+    this.followupOverlayEl?.classList.remove(`${config.addonRef}-followup-overlay-open`);
+  }
+
+  private setFollowupBusy(busy: boolean): void {
+    this.followupBusy = busy;
+    if (this.followupInputEl) this.followupInputEl.disabled = busy;
+    if (this.followupSendBtn) {
+      this.followupSendBtn.disabled = busy;
+      this.followupSendBtn.textContent = busy ? t("status-generating") : t("send");
+    }
+  }
+
+  private autoGrowFollowupInput(): void {
+    if (!this.followupInputEl) return;
+    this.followupInputEl.style.height = "auto";
+    this.followupInputEl.style.height = `${Math.min(this.followupInputEl.scrollHeight, 120)}px`;
+  }
+
+  private scrollFollowupToBottom(): void {
+    if (!this.followupMessagesEl) return;
+    this.followupMessagesEl.scrollTop = this.followupMessagesEl.scrollHeight;
+  }
+
+  private messageContentToText(content: Message["content"] | undefined): string {
+    if (!content) return "";
+    if (typeof content === "string") return content;
+    return content
+      .filter((p) => p.type === "text")
+      .map((p) => (p as { type: "text"; text: string }).text)
+      .join("\n");
   }
 
   private buildEmptyState(doc: Document): HTMLElement {
@@ -1357,6 +2355,8 @@ export default class SidebarView {
   public destroy(): void {
     _log("SidebarView destroy called");
     this.saveConversation();
+    this.followupResizeCleanup?.();
+    this.followupResizeCleanup = null;
     if (this.secretKeyObserverID && (Zotero as any).Prefs?.unregisterObserver) {
       try { (Zotero as any).Prefs.unregisterObserver(this.secretKeyObserverID); } catch (e) {}
       this.secretKeyObserverID = null;

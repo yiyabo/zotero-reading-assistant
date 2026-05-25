@@ -5,7 +5,8 @@ export type WikiRoute =
   | { type: "home" }
   | { type: "paper"; itemKey: string }
   | { type: "concept"; conceptId: string }
-  | { type: "domain"; domain: string };
+  | { type: "domain"; domain: string }
+  | { type: "organizer" };
 
 const WINDOW_TYPE = "reading-assistant:knowledge-wiki";
 const WINDOW_FEATURES = "chrome,titlebar,toolbar,centerscreen,resizable,dialog=no,width=1180,height=780";

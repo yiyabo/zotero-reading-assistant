@@ -32,6 +32,8 @@ import {
   CURRENT_PROFILE_SCHEMA_VERSION,
   CURRENT_RELATIONS_VOCAB_VERSION,
   kgStore,
+  type DataFlowStep,
+  type DatasetDetail,
   type KGEdge,
   type KGEdgeRole,
   type KGEdgeType,
@@ -831,11 +833,11 @@ const DOMAIN_BUCKET_LIST_TEXT = DOMAIN_BUCKETS.map((b) => b.label).join(" / ") +
 
 const SYSTEM_PROMPT =
   "You are a precise research assistant that extracts structured information from academic papers " +
-  "for a knowledge graph (profile schema v11). You always respond with a single valid JSON object " +
+  "for a knowledge graph (profile schema v12). You always respond with a single valid JSON object " +
   "and no other text — no Markdown, no commentary, no code fences. If a field cannot be reliably " +
   "determined, include it with an empty string \"\" or empty array []. Be concise but specific. " +
   "IMPORTANT: All natural-language values (domain, problem, targetTask, contributions, limitations, " +
-  "keywords, evidence, methodology) MUST be written in Simplified Chinese (简体中文), even if the input paper is " +
+  "keywords, methodology, datasetDetails, dataFlow) MUST be written in Simplified Chinese (简体中文), even if the input paper is " +
   "in English. Keep proper nouns, model/dataset names, and well-known acronyms (e.g. BERT, GNN, " +
   "AlphaFold, PDBBind) in their original form.";
 
@@ -866,6 +868,18 @@ function buildAnalysisMessages(content: ExtractedPaperContent): Message[] {
     '    "description": "该步骤的中文简要描述，含关键操作和输入输出"',
     "  }],",
     '  "methodology": ["3-5 条核心方法论/设计原则，中文。例如：使用注意力机制捕捉长程依赖、通过扩散模型逐步去噪等"],',
+    '  "datasetDetails": [{',
+    '    "name": "数据集名称（如 PDBBind、CASP14）",',
+    '    "description": "数据集的中文详细描述：包含什么内容、样本数量级、数据格式、标签类型等",',
+    '    "scale": "数据规模（如 19万+蛋白结构、50万张图片）；不确定则空字符串",',
+    '    "format": "数据格式（如 PDB坐标文件、FASTA序列、JSON标注）；不确定则空字符串",',
+    '    "source": "数据来源（如 蛋白质数据库PDB、人工标注）；不确定则空字符串"',
+    "  }],",
+    '  "dataFlow": [{',
+    '    "step": 1,',
+    '    "name": "数据处理阶段名称（英文，如 Raw Input、Feature Extraction、Model Input）",',
+    '    "description": "该阶段数据发生了什么变化，中文描述，含输入输出数据形态"',
+    "  }],",
     '  "limitations": ["1-3 条论文承认的限制；没有则 []"],',
     '  "keywords": ["4-8 个中文关键词，专有名词可保留原文"]',
     "}",
@@ -885,7 +899,11 @@ name 必须是名称（AlphaFold2、RoseTTAFold）而不是描述短语。避免
     "5. pipeline 是论文方法的核心流程拆解，按执行顺序排列。每个 step 要有明确的名称（英文为主）和中文描述。\
 一般 4-8 步。如果论文没有明确 pipeline 结构，按方法逻辑拆解。",
     "6. methodology 是论文的核心方法论设计原则，3-5 条，要具体，不要空泛的「使用了深度学习」。",
-    "7. 不要输出答案之外的任何文字。",
+    "7. datasetDetails 是论文使用的数据集的详细信息。重点描述：数据集包含什么（蛋白质结构/图像/文本）、规模多大、格式是什么、标签怎么定义。\
+如果论文自己构建了新数据集，也要包含在内。一般 1-4 个数据集。",
+    "8. dataFlow 是数据在论文方法中的流转路径。从原始输入开始，经过预处理、特征提取、模型输入、模型输出、后处理，到最终结果。\
+一般 4-7 步。重点描述每一步数据的形态变化（如：FASTA序列 → MSA矩阵 → embedding向量）。",
+    "9. 不要输出答案之外的任何文字。",
     "",
     "Paper:",
     content.title ? `Title: ${content.title}` : "",
@@ -978,7 +996,7 @@ function parseAnalysisResponse(raw: string): PaperSummary {
   }
   if (!parsed || typeof parsed !== "object") return {};
 
-  // v11: pipeline + methodology replacing references.
+  // v12: datasetDetails + dataFlow added.
   return {
     domain: normalizeDomain(typeof parsed.domain === "string" ? parsed.domain : undefined),
     problem: typeof parsed.problem === "string" ? parsed.problem.trim() : undefined,
@@ -990,6 +1008,8 @@ function parseAnalysisResponse(raw: string): PaperSummary {
     referencedDatasets: toReferencedItemArray(parsed.referencedDatasets),
     pipeline: toPipelineStepArray(parsed.pipeline),
     methodology: toStringArray(parsed.methodology),
+    datasetDetails: toDatasetDetailArray(parsed.datasetDetails),
+    dataFlow: toDataFlowStepArray(parsed.dataFlow),
     limitations: toStringArray(parsed.limitations),
     keywords: toStringArray(parsed.keywords),
   };
@@ -1034,6 +1054,44 @@ function toPipelineStepArray(value: unknown): PipelineStep[] | undefined {
     if (!name) continue;
     out.push({ step, name, description });
     if (out.length >= 12) break;
+  }
+  out.sort((a, b) => a.step - b.step);
+  return out.length > 0 ? out : undefined;
+}
+
+function toDatasetDetailArray(value: unknown): DatasetDetail[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: DatasetDetail[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const obj = entry as Record<string, unknown>;
+    const name = typeof obj.name === "string" ? obj.name.trim() : "";
+    const description = typeof obj.description === "string" ? obj.description.trim() : "";
+    if (!name) continue;
+    out.push({
+      name,
+      description,
+      scale: typeof obj.scale === "string" ? obj.scale.trim() || undefined : undefined,
+      format: typeof obj.format === "string" ? obj.format.trim() || undefined : undefined,
+      source: typeof obj.source === "string" ? obj.source.trim() || undefined : undefined,
+    });
+    if (out.length >= 8) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function toDataFlowStepArray(value: unknown): DataFlowStep[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: DataFlowStep[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const obj = entry as Record<string, unknown>;
+    const step = typeof obj.step === "number" ? obj.step : out.length + 1;
+    const name = typeof obj.name === "string" ? obj.name.trim() : "";
+    const description = typeof obj.description === "string" ? obj.description.trim() : "";
+    if (!name) continue;
+    out.push({ step, name, description });
+    if (out.length >= 10) break;
   }
   out.sort((a, b) => a.step - b.step);
   return out.length > 0 ? out : undefined;

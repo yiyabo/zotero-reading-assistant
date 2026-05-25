@@ -775,6 +775,342 @@ export function buildSidebarStyles(addonRef: string): string {
         white-space: nowrap;
       }
 
+      /* Conversation switcher — sits at the very top of the panel and lets
+         the user juggle multiple chat threads under the same paper. */
+      .${addonRef}-conversation-bar {
+        position: relative;
+        display: flex;
+        flex: 0 0 auto;
+        align-items: stretch;
+        gap: 6px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .${addonRef}-conv-title-btn {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ra-text);
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-secondary));
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+        text-align: left;
+      }
+      .${addonRef}-conv-title-btn:hover {
+        background: color-mix(in srgb, var(--ra-secondary) 8%, white);
+        border-color: color-mix(in srgb, var(--ra-secondary) 35%, transparent);
+      }
+      .${addonRef}-conv-title-icon {
+        display: inline-flex;
+        align-items: center;
+        flex-shrink: 0;
+        color: var(--ra-brand-active);
+      }
+      .${addonRef}-conv-title-text {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .${addonRef}-conv-title-text-empty {
+        color: var(--ra-text-muted);
+        font-style: italic;
+        font-weight: 500;
+      }
+      .${addonRef}-conv-icon-btn {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        color: var(--ra-text-muted);
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-secondary));
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+      }
+      .${addonRef}-conv-icon-btn:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--ra-secondary) 8%, white);
+        border-color: color-mix(in srgb, var(--ra-secondary) 35%, transparent);
+        color: var(--ra-brand-active);
+      }
+      .${addonRef}-conv-icon-btn:active:not(:disabled) { transform: scale(0.95); }
+      .${addonRef}-conv-icon-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .${addonRef}-conv-icon-btn.${addonRef}-conv-icon-btn-danger:hover:not(:disabled) {
+        color: #dc2626;
+        background: rgba(254, 226, 226, 0.85);
+        border-color: rgba(220, 38, 38, 0.4);
+      }
+      .${addonRef}-conv-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        z-index: 5;
+        max-height: 240px;
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid color-mix(in srgb, var(--ra-border) 80%, var(--ra-secondary));
+        border-radius: var(--ra-radius-lg);
+        box-shadow: 0 12px 32px color-mix(in srgb, var(--ra-brand) 14%, transparent);
+        padding: 4px;
+        display: none;
+      }
+      .${addonRef}-conv-dropdown.${addonRef}-conv-dropdown-open {
+        display: block;
+      }
+      .${addonRef}-conv-dropdown-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px 10px;
+        border-radius: var(--ra-radius);
+        cursor: pointer;
+        transition: background 0.12s ease;
+      }
+      .${addonRef}-conv-dropdown-item:hover {
+        background: color-mix(in srgb, var(--ra-secondary) 10%, white);
+      }
+      .${addonRef}-conv-dropdown-item.${addonRef}-conv-dropdown-item-active {
+        background: linear-gradient(180deg, var(--ra-purple-50), var(--ra-purple-100));
+      }
+      .${addonRef}-conv-dropdown-item-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ra-text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .${addonRef}-conv-dropdown-item-title-empty {
+        color: var(--ra-text-muted);
+        font-style: italic;
+        font-weight: 500;
+      }
+      .${addonRef}-conv-dropdown-item-meta {
+        font-size: 11px;
+        color: var(--ra-text-muted);
+      }
+      .${addonRef}-conv-dropdown-empty-row {
+        padding: 10px 12px;
+        font-size: 12px;
+        color: var(--ra-text-muted);
+        text-align: center;
+        font-style: italic;
+      }
+
+      .${addonRef}-followup-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 12px;
+        background: color-mix(in srgb, var(--ra-text) 16%, transparent);
+        backdrop-filter: blur(3px);
+      }
+
+      .${addonRef}-followup-overlay.${addonRef}-followup-overlay-open {
+        display: flex;
+      }
+
+      .${addonRef}-followup-modal {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        width: calc(100% - 24px);
+        height: min(560px, calc(100% - 24px));
+        max-width: calc(100% - 24px);
+        max-height: calc(100% - 24px);
+        min-width: min(320px, calc(100% - 24px));
+        min-height: min(320px, calc(100% - 24px));
+        overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--ra-border) 75%, var(--ra-secondary));
+        border-radius: var(--ra-radius-xl);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.94)),
+          var(--ra-bg);
+        box-shadow:
+          0 24px 60px color-mix(in srgb, var(--ra-text) 18%, transparent),
+          0 10px 28px color-mix(in srgb, var(--ra-brand) 16%, transparent);
+      }
+
+      .${addonRef}-followup-modal.${addonRef}-followup-modal-resizing {
+        user-select: none;
+      }
+
+      .${addonRef}-followup-resize-handle {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        cursor: nwse-resize;
+        opacity: 0.55;
+        transition: opacity 0.15s ease, background 0.15s ease;
+      }
+
+      .${addonRef}-followup-resize-handle::before {
+        content: "";
+        position: absolute;
+        right: 4px;
+        bottom: 4px;
+        width: 9px;
+        height: 9px;
+        border-right: 2px solid color-mix(in srgb, var(--ra-text-muted) 72%, transparent);
+        border-bottom: 2px solid color-mix(in srgb, var(--ra-text-muted) 72%, transparent);
+      }
+
+      .${addonRef}-followup-resize-handle:hover {
+        background: color-mix(in srgb, var(--ra-secondary) 10%, transparent);
+        opacity: 1;
+      }
+
+      .${addonRef}-followup-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid color-mix(in srgb, var(--ra-border) 70%, transparent);
+      }
+
+      .${addonRef}-followup-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ra-text);
+      }
+
+      .${addonRef}-followup-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--ra-text-muted);
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .${addonRef}-followup-close:hover {
+        background: color-mix(in srgb, var(--ra-secondary) 10%, transparent);
+        color: var(--ra-brand-active);
+      }
+
+      .${addonRef}-followup-anchor {
+        margin: 10px 12px 0;
+        padding: 8px 10px;
+        border: 1px solid color-mix(in srgb, var(--ra-border) 80%, var(--ra-secondary));
+        border-radius: var(--ra-radius-lg);
+        background: color-mix(in srgb, var(--ra-secondary) 6%, white);
+      }
+
+      .${addonRef}-followup-anchor-label {
+        margin-bottom: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ra-brand-active);
+      }
+
+      .${addonRef}-followup-anchor-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--ra-text-muted);
+      }
+
+      .${addonRef}-followup-messages {
+        display: flex;
+        flex: 1 1 auto;
+        min-height: 0;
+        flex-direction: column;
+        gap: 10px;
+        overflow-y: auto;
+        padding: 12px;
+      }
+
+      .${addonRef}-followup-empty {
+        margin: auto;
+        max-width: 260px;
+        text-align: center;
+        color: var(--ra-text-muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .${addonRef}-followup-input-dock {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 8px;
+        align-items: flex-end;
+        padding: 10px 12px 12px;
+        border-top: 1px solid color-mix(in srgb, var(--ra-border) 70%, transparent);
+      }
+
+      .${addonRef}-followup-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-height: 120px;
+        resize: none;
+        padding: 9px 11px;
+        border: 1px solid color-mix(in srgb, var(--ra-border) 85%, var(--ra-secondary));
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--ra-text);
+        font: inherit;
+        line-height: 1.45;
+        outline: none;
+      }
+
+      .${addonRef}-followup-input:focus {
+        border-color: color-mix(in srgb, var(--ra-secondary) 55%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--ra-secondary) 12%, transparent);
+      }
+
+      .${addonRef}-followup-send {
+        flex: 0 0 auto;
+        min-width: 62px;
+        height: 36px;
+        padding: 0 12px;
+        border: none;
+        border-radius: 999px;
+        background: var(--ra-gradient);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 8px 18px color-mix(in srgb, var(--ra-brand) 24%, transparent);
+      }
+
+      .${addonRef}-followup-send:disabled {
+        opacity: 0.65;
+        cursor: wait;
+      }
+
       .${addonRef}-input-dock {
         display: flex;
         flex: 0 0 auto;
@@ -863,7 +1199,7 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-message-images {
-        display: inline-flex;
+        display: flex;
         flex-wrap: wrap;
         gap: 4px;
         margin-bottom: 4px;
@@ -875,6 +1211,90 @@ export function buildSidebarStyles(addonRef: string): string {
         border-radius: 6px;
         border: 1px solid var(--ra-border);
         object-fit: contain;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+      }
+
+      .${addonRef}-message-images img:hover {
+        transform: scale(1.02);
+      }
+
+      .${addonRef}-assistant-image {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+      }
+
+      .${addonRef}-assistant-image:hover {
+        transform: scale(1.01);
+      }
+
+      .${addonRef}-mosaic-loader {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 3px;
+        width: 240px;
+        height: 240px;
+        padding: 12px;
+        border-radius: 12px;
+        background: var(--ra-surface-1, #f5f3ff);
+        animation: ${addonRef}-mosaic-rotate 3s linear infinite;
+      }
+
+      .${addonRef}-mosaic-tile {
+        border-radius: 3px;
+        animation: ${addonRef}-mosaic-blink 0.6s ease-in-out infinite alternate;
+      }
+
+      .${addonRef}-mosaic-tile:nth-child(8n+1) { background: #ede9fe; animation-delay: 0.0s; }
+      .${addonRef}-mosaic-tile:nth-child(8n+2) { background: #ddd6fe; animation-delay: 0.08s; }
+      .${addonRef}-mosaic-tile:nth-child(8n+3) { background: #c4b5fd; animation-delay: 0.16s; }
+      .${addonRef}-mosaic-tile:nth-child(8n+4) { background: #a78bfa; animation-delay: 0.24s; }
+      .${addonRef}-mosaic-tile:nth-child(8n+5) { background: #8b5cf6; animation-delay: 0.32s; }
+      .${addonRef}-mosaic-tile:nth-child(8n+6) { background: #7c3aed; animation-delay: 0.40s; }
+      .${addonRef}-mosaic-tile:nth-child(8n+7) { background: #6d28d9; animation-delay: 0.48s; }
+      .${addonRef}-mosaic-tile:nth-child(8n+8) { background: #5b21b6; animation-delay: 0.56s; }
+
+      .${addonRef}-mosaic-tile:nth-child(n+9):nth-child(-n+16) { animation-delay: 0.10s; }
+      .${addonRef}-mosaic-tile:nth-child(n+17):nth-child(-n+24) { animation-delay: 0.20s; }
+      .${addonRef}-mosaic-tile:nth-child(n+25):nth-child(-n+32) { animation-delay: 0.30s; }
+      .${addonRef}-mosaic-tile:nth-child(n+33):nth-child(-n+40) { animation-delay: 0.40s; }
+      .${addonRef}-mosaic-tile:nth-child(n+41):nth-child(-n+48) { animation-delay: 0.50s; }
+      .${addonRef}-mosaic-tile:nth-child(n+49):nth-child(-n+56) { animation-delay: 0.60s; }
+      .${addonRef}-mosaic-tile:nth-child(n+57):nth-child(-n+64) { animation-delay: 0.70s; }
+
+      @keyframes ${addonRef}-mosaic-blink {
+        0%   { opacity: 0.2; transform: scale(0.7); }
+        100% { opacity: 1;   transform: scale(1); }
+      }
+
+      @keyframes ${addonRef}-mosaic-rotate {
+        0%   { filter: hue-rotate(0deg); }
+        100% { filter: hue-rotate(360deg); }
+      }
+
+      .${addonRef}-image-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        cursor: zoom-out;
+      }
+
+      .${addonRef}-image-overlay img {
+        max-width: 90vw;
+        max-height: 90vh;
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
       }
 
       textarea.${addonRef}-input {
