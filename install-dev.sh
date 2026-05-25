@@ -81,7 +81,7 @@ echo "3. 打开 工具 → 插件，检查是否看到 'Zotero Reading Assistant
 echo "4. 配置 API（编辑 → 首选项 → 高级 → 配置编辑器）："
 echo ""
 echo "   extensions.zotero.readingassistant.secretKey"
-echo "   sk-756b48f07d1f4a24a87a43e92111dcac"
+echo "   <YOUR_API_KEY>"
 echo ""
 echo "   extensions.zotero.readingassistant.api"
 echo "   https://dashscope.aliyuncs.com/compatible-mode"

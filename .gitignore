@@ -3,8 +3,11 @@ node_modules
 package-lock.json
 zotero-cmd.json
 .env
+.kilo/
 **/test
 *.log
 .DS_Store
 *.tsbuildinfo
 .spec-workflow/
+update.json
+update.rdf
