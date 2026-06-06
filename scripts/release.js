@@ -47,7 +47,8 @@ async function main() {
   console.log(`   Version: ${updateEntry.version}`);
   console.log(`   Update link: ${updateEntry.update_link}`);
 
-  fs.copyFileSync("builds/update.json", "builds/update.json.release");
+  const buildDir = "builds";
+  fs.copyFileSync(path.join(buildDir, "update.json"), path.join(buildDir, "update.json.release"));
 
   console.log("\n📝 Creating git commit and tag...");
   run("git add package.json");
@@ -74,7 +75,7 @@ Zotero will automatically check for updates from this release.`;
     `--title "v${version}" ` +
     `--notes "${releaseNotes.replace(/"/g, '\\"')}" ` +
     `builds/zotero-reading-assistant.xpi ` +
-    `builds/update.json.release#update.json`
+    `builds/update.json`
   );
 
   console.log(`\n✅ Released v${version} successfully!`);
