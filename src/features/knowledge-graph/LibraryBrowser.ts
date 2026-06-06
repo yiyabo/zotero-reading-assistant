@@ -30,6 +30,19 @@ import { config } from "../../../package.json";
 import { createHTMLElement, t } from "../../sidebar/domUtils";
 import { kgStore } from "./KGStore";
 
+function isUsableItem(it: any): boolean {
+  if (!it || it.deleted) return false;
+  if (it.isRegularItem?.()) return true;
+  if (it.parentItem || it.parentID) return false;
+  try {
+    if (typeof it.isPDFAttachment === "function" && it.isPDFAttachment()) return true;
+  } catch (_) {}
+  const ct = String(it.attachmentContentType || "");
+  if (ct.toLowerCase() === "application/pdf") return true;
+  const path = String(it.attachmentPath || it.path || "");
+  return path.toLowerCase().endsWith(".pdf");
+}
+
 export type LibraryBrowserOptions = {
   doc: Document;
   /** Called when the user confirms with `commit=true`, with the items they picked. */
@@ -194,7 +207,7 @@ export function buildLibraryBrowser(opts: LibraryBrowserOptions): LibraryBrowser
     } catch (e: any) {
       Zotero.debug("[RA] LibraryBrowser loadItemsForNode error: " + (e?.message || e));
     }
-    items = items.filter((it: any) => it.isRegularItem?.() && !it.deleted);
+    items = items.filter((it: any) => isUsableItem(it));
     items.sort((a, b) => String(b.dateAdded || "").localeCompare(String(a.dateAdded || "")));
     itemsHeader.textContent = `${node.name} \u00b7 ${items.length} ${t("kg-browser-items-suffix")}`;
     if (items.length === 0) {
@@ -218,7 +231,7 @@ export function buildLibraryBrowser(opts: LibraryBrowserOptions): LibraryBrowser
       const ids: number[] = await search.search();
       const fetched = ids?.length ? await (Zotero.Items as any).getAsync(ids) : [];
       const items = fetched
-        .filter((it: any) => it.isRegularItem?.() && !it.deleted)
+        .filter((it: any) => isUsableItem(it))
         .sort((a: any, b: any) =>
           String(b.dateAdded || "").localeCompare(String(a.dateAdded || "")),
         );

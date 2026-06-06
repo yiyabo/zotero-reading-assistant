@@ -50,7 +50,7 @@ import {
 
 const MAX_INDEXED_FULLTEXT_CHARS = 240000;
 const MAX_BODY_CHARS = 42000;
-const MAX_REFERENCE_CHARS = 28000;
+const MAX_REFERENCE_CHARS = 50000;
 
 /** Cap abstract length to keep prompts focused. */
 const MAX_ABSTRACT_CHARS = 6000;
@@ -183,6 +183,8 @@ export function startKGPipeline(): void {
     void backfillDomainBuckets(state);
   }
 
+  void backfillReferenceMatching(state);
+
   unsubscribe = kgStore.subscribe((s) => scan(s));
   scan(kgStore.getState());
 
@@ -241,6 +243,28 @@ async function backfillDomainBuckets(state: ReturnType<typeof kgStore.getState>)
   fileLog(
     `KGPipeline: domain buckets v${before} → v${CURRENT_DOMAIN_BUCKETS_VERSION}: rewrote ${changed}/${state.papers.length} paper domains`,
   );
+}
+
+async function backfillReferenceMatching(state: ReturnType<typeof kgStore.getState>): Promise<void> {
+  let changed = 0;
+  for (const p of state.papers) {
+    if (p.status !== "ready" || !p.summary?.references) continue;
+    const unmatched = p.summary.references.filter((r) => !r.matchedItemKey);
+    if (unmatched.length === 0) continue;
+    try {
+      const enriched = await matchReferencesToLibrary([...p.summary.references]);
+      if (!enriched) continue;
+      await kgStore.updatePaper(p.itemKey, {
+        summary: { ...p.summary, references: enriched },
+      });
+      changed++;
+    } catch (e: any) {
+      Zotero.debug(`[RA] backfillReferenceMatching ${p.itemKey} error: ${e?.message || e}`);
+    }
+  }
+  if (changed > 0) {
+    fileLog(`KGPipeline: backfilled reference matching for ${changed} papers`);
+  }
 }
 
 /**
@@ -384,6 +408,7 @@ async function processOne(itemKey: string): Promise<void> {
     const response = await runLLMOneShot(messages);
     const summary = parseAnalysisResponse(response);
     summary.references = mergeReferences(summary.references, content.parsedReferences);
+    summary.references = await matchReferencesToLibrary(summary.references);
     if (!isUsableSummary(summary)) {
       throw new Error("LLM response was not usable JSON. Try re-adding.");
     }
@@ -501,6 +526,26 @@ async function readBestFullText(item: any): Promise<FullTextReadResult> {
     usedDirectPdfExtraction: false,
   };
   try {
+    if (isPdfAttachment(item)) {
+      result.pdfAttachmentCount = 1;
+      let combined = "";
+      try {
+        const ft = await (Zotero.Fulltext as any).getItemFullText?.(item.id);
+        const txt = typeof ft === "string" ? ft : ft?.text || "";
+        if (txt) combined = String(txt);
+      } catch (_) {}
+      if (!combined) {
+        const directText = await readPdfWorkerFullText(item);
+        if (directText) {
+          result.usedDirectPdfExtraction = true;
+          combined = directText;
+          scheduleFullTextIndex(item);
+        }
+      }
+      result.text = trimIndexedFullText(combined);
+      return result;
+    }
+
     const attachmentIDs = item.getAttachments?.() || [];
     if (!attachmentIDs.length) return result;
     let combined = "";
@@ -609,7 +654,7 @@ function extractReferenceSection(text: string): string {
     const start = inlineMatches[inlineMatches.length - 1].index || 0;
     return raw.slice(start, start + MAX_REFERENCE_CHARS);
   }
-  return raw.slice(Math.max(0, raw.length - MAX_REFERENCE_CHARS));
+  return "";
 }
 
 function parseReferenceEntries(referenceText: string): PaperReference[] {
@@ -627,7 +672,7 @@ function parseReferenceEntries(referenceText: string): PaperReference[] {
     const startsNew =
       /^\[\d+\]\s+/.test(line) ||
       /^\d+\.\s+/.test(line) ||
-      /^[A-Z][A-Za-z'’`-]+,\s+[A-Z]/.test(line) ||
+      /^[A-Z][A-Za-z''`-]+,\s+[A-Z]/.test(line) ||
       /^doi\s*:/i.test(line);
     if (startsNew && current.length > 80) {
       entries.push(current.trim());
@@ -643,30 +688,51 @@ function parseReferenceEntries(referenceText: string): PaperReference[] {
     .map((x) => x.trim())
     .filter((x) => /^(?:\[\d{1,3}\]|\d{1,3}\.)/.test(x) && x.length > 25);
   const authorYear = compact
-    .split(/(?=\b[A-Z][A-Za-z'’`-]{2,}(?:,\s+[A-Z][A-Za-z'’`-]+|,\s+[A-Z]\.| et al\.| and [A-Z][A-Za-z'’`-]+).{0,140}\b(?:19|20)\d{2}\b)/g)
+    .split(/(?=\b[A-Z][A-Za-z''`-]{2,}(?:,\s+[A-Z][A-Za-z''`-]+|,\s+[A-Z]\.| et al\.| and [A-Z][A-Za-z''`-]+).{0,140}\b(?:19|20)\d{2}\b)/g)
     .map((x) => x.trim())
     .filter((x) => /\b(?:19|20)\d{2}\b/.test(x) && x.length > 45);
   const candidateEntries = numbered.length >= 3 ? numbered : authorYear.length >= 3 ? authorYear : entries;
   return candidateEntries
+    .filter((e) => !looksLikeBodyText(e))
     .map(parseReferenceEntry)
     .filter((r) => r.raw.length > 20 && (r.title || r.year || r.doi))
     .slice(0, 100);
 }
 
+function looksLikeBodyText(entry: string): boolean {
+  if (entry.length > 500) return true;
+  if (/[∑∫∂∇∀∃∈⊂⊃∪∩⇒⇔≤≥≈≠±∞√]/.test(entry)) return true;
+  if (/\b(table|figure|algorithm|equation|fig\.|eq\.)\s*\d/i.test(entry)) return true;
+  const proseHits = (entry.match(/\b(we propose|our method|our model|we show|we demonstrate|we evaluate|our approach|we train|we use|we found|we observe|our results)\b/gi) || []).length;
+  if (proseHits >= 2) return true;
+  const sentences = entry.split(/\.\s+/).filter((s) => s.length > 30);
+  if (sentences.length >= 4) return true;
+  return false;
+}
+
 function parseReferenceEntry(rawEntry: string): PaperReference {
-  const raw = rawEntry.replace(/\s+/g, " ").replace(/^(?:\[\d{1,3}\]|\d{1,3}\.)\s*/, "").trim();
+  let raw = rawEntry.replace(/\s+/g, " ").replace(/^(?:\[\d{1,3}\]|\d{1,3}\.)\s*/, "").trim();
+  raw = raw.replace(/^\(?(?:19|20)\d{2}\)?\s*/, "").trim();
   const doi = raw.match(/\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i)?.[0];
   const year = raw.match(/\b(19|20)\d{2}\b/)?.[0];
-  const sentenceParts = raw
-    .split(/\.\s+/)
-    .map((x) => x.trim())
-    .map(cleanReferenceTitleCandidate)
-    .filter((x) => looksLikeReferenceTitle(x));
-  const title = chooseReferenceTitle(sentenceParts);
+
+  let title: string | undefined;
+  const quoted = raw.match(/["""]([^"""]{10,200})["""]/);
+  if (quoted) {
+    title = quoted[1].trim();
+  } else {
+    const sentenceParts = raw
+      .split(/\.\s+/)
+      .map((x) => x.trim())
+      .map(cleanReferenceTitleCandidate)
+      .filter((x) => looksLikeReferenceTitle(x));
+    title = chooseReferenceTitle(sentenceParts) || undefined;
+  }
+
   const authors = year ? raw.slice(0, raw.indexOf(year)).replace(/[().,\s]+$/, "").trim() : undefined;
   return {
     raw,
-    title: title || undefined,
+    title,
     authors: authors || undefined,
     year,
     doi,
@@ -676,6 +742,7 @@ function parseReferenceEntry(rawEntry: string): PaperReference {
 function cleanReferenceTitleCandidate(value: string): string {
   return String(value || "")
     .replace(/^(?:\[\d{1,3}\]|\d{1,3}\.)\s*/, "")
+    .replace(/^(?:19|20)\d{2}\)?\s*/, "")
     .replace(/^[\s()[\].,;:]+/, "")
     .replace(/\s+[\[(]?(?:19|20)\d{2}[)\]]?$/, "")
     .replace(/\.$/, "")
@@ -1152,6 +1219,133 @@ function dedupeReferences(refs: PaperReference[]): PaperReference[] {
     out.push(r);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Reference → Zotero library matching
+// ---------------------------------------------------------------------------
+
+/**
+ * Try to match each `PaperReference` against items in the user's Zotero
+ * library. Fills `matchedItemKey` and `matchConfidence` when a match is
+ * found. Matching priority: DOI → title → author+year.
+ *
+ * This is a best-effort enrichment — failures are silently ignored so the
+ * pipeline never blocks on matching.
+ */
+async function matchReferencesToLibrary(
+  refs: PaperReference[] | undefined,
+): Promise<PaperReference[] | undefined> {
+  if (!refs || refs.length === 0) return refs;
+
+  const cache = await buildLibraryItemCache();
+  if (cache.size === 0) return refs;
+
+  for (const ref of refs) {
+    if (ref.matchedItemKey) continue;
+
+    if (ref.doi) {
+      const match = cache.get(`doi:${ref.doi.toLowerCase()}`);
+      if (match) {
+        ref.matchedItemKey = match.key;
+        ref.matchConfidence = 1.0;
+        continue;
+      }
+    }
+
+    if (ref.title) {
+      const titleKey = normalizeRefTitle(ref.title);
+      const match = cache.get(`title:${titleKey}`);
+      if (match) {
+        ref.matchedItemKey = match.key;
+        ref.matchConfidence = 0.9;
+        continue;
+      }
+    }
+
+    if (ref.authors && ref.year) {
+      const authorKey = normalizeRefAuthors(ref.authors);
+      const yearKey = ref.year;
+      const match = cache.get(`ay:${authorKey}|${yearKey}`);
+      if (match) {
+        ref.matchedItemKey = match.key;
+        ref.matchConfidence = 0.7;
+        continue;
+      }
+    }
+  }
+  return refs;
+}
+
+type CachedItem = { key: string; itemID: number };
+
+/**
+ * Build a multi-key lookup map from the user's Zotero library.
+ * Keys: `doi:<doi>`, `title:<normalized>`, `ay:<firstAuthor>|<year>`.
+ */
+async function buildLibraryItemCache(): Promise<Map<string, CachedItem>> {
+  const cache = new Map<string, CachedItem>();
+  try {
+    const libID = (Zotero as any).Libraries?.userLibraryID;
+    const search = new (Zotero as any).Search();
+    search.libraryID = libID;
+    // Exclude attachments and notes — only regular items.
+    search.addCondition("itemType", "isNot", "attachment");
+    search.addCondition("itemType", "isNot", "note");
+    const ids: number[] = await search.search();
+    if (!ids?.length) return cache;
+
+    const items = await (Zotero.Items as any).getAsync(ids);
+    for (const item of items) {
+      if (!item || item.deleted) continue;
+      const entry: CachedItem = { key: item.key, itemID: item.id };
+
+      const doi = item.getField?.("DOI") || item.getField?.("doi");
+      if (doi) {
+        cache.set(`doi:${String(doi).toLowerCase().trim()}`, entry);
+      }
+
+      const title = item.getField?.("title");
+      if (title) {
+        cache.set(`title:${normalizeRefTitle(String(title))}`, entry);
+      }
+
+      const creators = item.getCreators?.();
+      if (creators?.length) {
+        const firstAuthor = creators[0].lastName || creators[0].name || "";
+        const year = item.getField?.("year") || String(item.getField?.("date") || "").match(/\b(19|20)\d{2}\b/)?.[0];
+        if (firstAuthor && year) {
+          cache.set(`ay:${normalizeRefAuthorName(firstAuthor)}|${year}`, entry);
+        }
+      }
+    }
+  } catch (e: any) {
+    Zotero.debug("[RA] buildLibraryItemCache error: " + (e?.message || e));
+  }
+  return cache;
+}
+
+function normalizeRefTitle(title: string): string {
+  return String(title || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fff]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeRefAuthors(authors: string): string {
+  // Extract first author's last name from "Smith, J. and Doe, A." or "Smith et al."
+  const first = authors.split(/(?:,|and|et al)/i)[0].trim();
+  return normalizeRefAuthorName(first);
+}
+
+function normalizeRefAuthorName(name: string): string {
+  return String(name || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fff]/g, "")
+    .trim();
 }
 
 function mergeStringLists(a: string[] | undefined, b: string[] | undefined): string[] | undefined {
@@ -1704,7 +1898,11 @@ function normalizeForMatch(value: string): string {
 }
 
 function referenceLabel(r: PaperReference): string {
-  return [r.title || r.raw, r.authors, r.year, r.doi].filter(Boolean).join(" | ");
+  const parts: string[] = [];
+  if (r.authors) parts.push(r.authors);
+  if (r.year) parts.push(`(${r.year})`);
+  if (r.title) parts.push(r.title);
+  return parts.length > 0 ? parts.join(". ") + "." : r.raw;
 }
 
 function isSpecificAlias(value: string): boolean {

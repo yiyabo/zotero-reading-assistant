@@ -1223,6 +1223,8 @@ function buildKGStyles(ref: string): string {
     .${ref}-kg-referenced-role-compared-baseline{ background: rgba(239,68,68,0.16);   color: #B91C1C; }
     .${ref}-kg-referenced-role-cited-only       { background: rgba(148,163,184,0.20); color: #475569; }
     .${ref}-kg-referenced-role-used             { background: rgba(34,197,94,0.16);   color: #15803D; }
+    .${ref}-kg-referenced-row-clickable { cursor: pointer; }
+    .${ref}-kg-referenced-row-clickable:hover { background: color-mix(in srgb, var(--ra-brand) 8%, transparent); }
 
     /* Concept detail: clickable pill that focuses source paper node on canvas. */
     .${ref}-kg-detail-rep-paper {

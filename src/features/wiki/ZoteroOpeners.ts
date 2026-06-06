@@ -9,6 +9,16 @@ export function openItemInZotero(itemID: number): void {
   }
 }
 
+export async function openItemByKey(itemKey: string): Promise<void> {
+  try {
+    const libID = (Zotero as any).Libraries?.userLibraryID;
+    const item = await (Zotero.Items as any).getByLibraryAndKeyAsync?.(libID, itemKey);
+    if (item?.id != null) openItemInZotero(item.id);
+  } catch (e: any) {
+    Zotero.debug("[RA] openItemByKey error: " + (e?.message || e));
+  }
+}
+
 export function findPdfAttachmentID(itemID: number): number | null {
   try {
     const item = Zotero.Items.get(itemID) as any;
