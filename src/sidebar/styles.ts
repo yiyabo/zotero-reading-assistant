@@ -188,11 +188,9 @@ export function buildSidebarStyles(addonRef: string): string {
         padding: 16px 14px 18px;
         border: 1px solid color-mix(in srgb, var(--ra-border) 90%, var(--ra-primary));
         border-radius: var(--ra-radius-lg);
-        background:
-          linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.96) 100%),
-          var(--ra-bg);
+        background: var(--ra-surface);
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.65),
+          inset 0 1px 0 color-mix(in srgb, var(--ra-surface) 80%, transparent),
           0 1px 2px rgba(15, 23, 42, 0.03);
         -moz-user-select: text;
         overscroll-behavior: contain;
@@ -704,63 +702,65 @@ export function buildSidebarStyles(addonRef: string): string {
         padding: 7px 10px;
         font-size: 12px;
         font-weight: 600;
-        color: #1f2937;
-        background: rgba(255, 255, 255, 0.96);
-        border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-secondary));
+        color: var(--ra-text);
+        background: var(--ra-surface);
+        border: 1px solid var(--ra-border);
         border-radius: 999px;
         cursor: pointer;
         transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease, color 0.15s ease;
         white-space: nowrap;
       }
       .${addonRef}-context-bar-btn:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--ra-secondary) 8%, white);
-        border-color: color-mix(in srgb, var(--ra-secondary) 35%, transparent);
+        background: var(--ra-surface-1);
+        border-color: var(--ra-border-strong);
       }
       .${addonRef}-context-bar-btn:active:not(:disabled) { transform: scale(0.98); }
       .${addonRef}-context-bar-btn:focus-visible {
-        outline: 2px solid var(--ra-secondary);
+        outline: 2px solid var(--ra-brand);
         outline-offset: 1px;
       }
       .${addonRef}-context-bar-btn-disabled,
       .${addonRef}-context-bar-btn:disabled {
         cursor: not-allowed;
-        color: #9ca3af;
-        background: rgba(243, 244, 246, 0.7);
-        border-color: rgba(229, 231, 235, 0.9);
+        color: var(--ra-text-muted);
+        background: var(--ra-surface-1);
+        border-color: var(--ra-border);
+        opacity: 0.6;
       }
       .${addonRef}-context-bar-add {
         flex: 1 1 auto;
         min-width: 0;
         justify-content: center;
         color: var(--ra-brand-active);
-        background: linear-gradient(180deg, var(--ra-purple-50), var(--ra-purple-100));
+        background: var(--ra-surface-2);
         border-color: var(--ra-border-strong);
       }
       .${addonRef}-context-bar-add:hover:not(:disabled) {
-        background: linear-gradient(180deg, var(--ra-purple-100), var(--ra-purple-200));
+        background: color-mix(in srgb, var(--ra-brand) 12%, var(--ra-surface));
         border-color: color-mix(in srgb, var(--ra-brand) 55%, transparent);
       }
       .${addonRef}-context-bar-add.${addonRef}-context-bar-btn-disabled {
-        background: rgba(243, 244, 246, 0.7);
-        color: #9ca3af;
-        border-color: rgba(229, 231, 235, 0.9);
+        background: var(--ra-surface-1);
+        color: var(--ra-text-muted);
+        border-color: var(--ra-border);
+        opacity: 0.6;
       }
       .${addonRef}-context-bar-wiki {
         color: var(--ra-brand-active);
-        background: rgba(255, 255, 255, 0.92);
+        background: var(--ra-surface);
         border-color: color-mix(in srgb, var(--ra-brand) 28%, transparent);
       }
       .${addonRef}-context-bar-wiki:hover:not(:disabled) {
-        background: linear-gradient(180deg, #FFFFFF, var(--ra-purple-50));
+        background: var(--ra-surface-1);
         border-color: color-mix(in srgb, var(--ra-brand) 52%, transparent);
       }
       .${addonRef}-context-bar-open {
         color: var(--ra-brand-active);
-        background: rgba(255, 255, 255, 0.92);
+        background: var(--ra-surface);
         border-color: color-mix(in srgb, var(--ra-brand) 28%, transparent);
       }
       .${addonRef}-context-bar-open:hover:not(:disabled) {
-        background: linear-gradient(180deg, #FFFFFF, var(--ra-purple-50));
+        background: var(--ra-surface-1);
         border-color: color-mix(in srgb, var(--ra-brand) 52%, transparent);
       }
       .${addonRef}-context-bar-icon {
@@ -797,16 +797,16 @@ export function buildSidebarStyles(addonRef: string): string {
         font-size: 12px;
         font-weight: 600;
         color: var(--ra-text);
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-secondary));
+        background: var(--ra-surface);
+        border: 1px solid var(--ra-border);
         border-radius: 999px;
         cursor: pointer;
         transition: background 0.15s ease, border-color 0.15s ease;
         text-align: left;
       }
       .${addonRef}-conv-title-btn:hover {
-        background: color-mix(in srgb, var(--ra-secondary) 8%, white);
-        border-color: color-mix(in srgb, var(--ra-secondary) 35%, transparent);
+        background: var(--ra-surface-1);
+        border-color: var(--ra-border-strong);
       }
       .${addonRef}-conv-title-icon {
         display: inline-flex;
@@ -835,15 +835,15 @@ export function buildSidebarStyles(addonRef: string): string {
         height: 30px;
         padding: 0;
         color: var(--ra-text-muted);
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-secondary));
+        background: var(--ra-surface);
+        border: 1px solid var(--ra-border);
         border-radius: 999px;
         cursor: pointer;
         transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
       }
       .${addonRef}-conv-icon-btn:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--ra-secondary) 8%, white);
-        border-color: color-mix(in srgb, var(--ra-secondary) 35%, transparent);
+        background: var(--ra-surface-1);
+        border-color: var(--ra-border-strong);
         color: var(--ra-brand-active);
       }
       .${addonRef}-conv-icon-btn:active:not(:disabled) { transform: scale(0.95); }
@@ -853,8 +853,8 @@ export function buildSidebarStyles(addonRef: string): string {
       }
       .${addonRef}-conv-icon-btn.${addonRef}-conv-icon-btn-danger:hover:not(:disabled) {
         color: #dc2626;
-        background: rgba(254, 226, 226, 0.85);
-        border-color: rgba(220, 38, 38, 0.4);
+        background: color-mix(in srgb, #dc2626 10%, var(--ra-surface));
+        border-color: color-mix(in srgb, #dc2626 40%, transparent);
       }
       .${addonRef}-conv-dropdown {
         position: absolute;
@@ -864,8 +864,8 @@ export function buildSidebarStyles(addonRef: string): string {
         z-index: 5;
         max-height: 240px;
         overflow-y: auto;
-        background: rgba(255, 255, 255, 0.98);
-        border: 1px solid color-mix(in srgb, var(--ra-border) 80%, var(--ra-secondary));
+        background: var(--ra-surface);
+        border: 1px solid var(--ra-border);
         border-radius: var(--ra-radius-lg);
         box-shadow: 0 12px 32px color-mix(in srgb, var(--ra-brand) 14%, transparent);
         padding: 4px;
@@ -884,10 +884,10 @@ export function buildSidebarStyles(addonRef: string): string {
         transition: background 0.12s ease;
       }
       .${addonRef}-conv-dropdown-item:hover {
-        background: color-mix(in srgb, var(--ra-secondary) 10%, white);
+        background: var(--ra-surface-1);
       }
       .${addonRef}-conv-dropdown-item.${addonRef}-conv-dropdown-item-active {
-        background: linear-gradient(180deg, var(--ra-purple-50), var(--ra-purple-100));
+        background: var(--ra-surface-2);
       }
       .${addonRef}-conv-dropdown-item-title {
         font-size: 12px;
@@ -943,9 +943,7 @@ export function buildSidebarStyles(addonRef: string): string {
         overflow: hidden;
         border: 1px solid color-mix(in srgb, var(--ra-border) 75%, var(--ra-secondary));
         border-radius: var(--ra-radius-xl);
-        background:
-          linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.94)),
-          var(--ra-bg);
+        background: var(--ra-surface);
         box-shadow:
           0 24px 60px color-mix(in srgb, var(--ra-text) 18%, transparent),
           0 10px 28px color-mix(in srgb, var(--ra-brand) 16%, transparent);
@@ -1023,7 +1021,7 @@ export function buildSidebarStyles(addonRef: string): string {
         padding: 8px 10px;
         border: 1px solid color-mix(in srgb, var(--ra-border) 80%, var(--ra-secondary));
         border-radius: var(--ra-radius-lg);
-        background: color-mix(in srgb, var(--ra-secondary) 6%, white);
+        background: var(--ra-surface-1);
       }
 
       .${addonRef}-followup-anchor-label {
@@ -1079,7 +1077,7 @@ export function buildSidebarStyles(addonRef: string): string {
         padding: 9px 11px;
         border: 1px solid color-mix(in srgb, var(--ra-border) 85%, var(--ra-secondary));
         border-radius: 14px;
-        background: rgba(255, 255, 255, 0.9);
+        background: var(--ra-surface);
         color: var(--ra-text);
         font: inherit;
         line-height: 1.45;
@@ -1124,12 +1122,10 @@ export function buildSidebarStyles(addonRef: string): string {
         padding: 10px;
         border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-secondary));
         border-radius: var(--ra-radius-xl);
-        background:
-          linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92)),
-          var(--ra-bg);
+        background: var(--ra-surface);
         box-shadow:
           0 12px 28px color-mix(in srgb, var(--ra-brand) 12%, transparent),
-          inset 0 1px 0 rgba(255, 255, 255, 0.72);
+          inset 0 1px 0 color-mix(in srgb, var(--ra-surface) 80%, transparent);
       }
 
       .${addonRef}-input-dock:focus-within {
@@ -1389,8 +1385,7 @@ export function buildSidebarStyles(addonRef: string): string {
         height: 28px;
         border: 1px solid color-mix(in srgb, var(--ra-secondary) 30%, transparent);
         border-radius: 50%;
-        background:
-          linear-gradient(180deg, rgba(255,255,255,0.72), rgba(245,243,255,0.52));
+        background: var(--ra-surface);
         color: var(--ra-secondary);
         cursor: pointer;
         opacity: 0;
@@ -1411,8 +1406,7 @@ export function buildSidebarStyles(addonRef: string): string {
       .${addonRef}-scroll-bottom-btn:hover {
         opacity: 1;
         color: var(--ra-secondary);
-        background:
-          linear-gradient(180deg, rgba(255,255,255,0.92), rgba(245,243,255,0.78));
+        background: var(--ra-surface-1);
         border-color: color-mix(in srgb, var(--ra-secondary) 44%, transparent);
         box-shadow: 0 10px 24px color-mix(in srgb, var(--ra-brand) 20%, transparent);
       }

@@ -146,6 +146,21 @@ export function buildSharedTokens(scope = ":root"): string {
     --ra-icon-lg: 20px;
   }
 
+  @media (prefers-color-scheme: dark) {
+    ${scope} {
+      --ra-surface:       var(--material-background, #1e1e2e);
+      --ra-surface-1:     color-mix(in srgb, var(--ra-surface) 86%, ${PURPLE[900]} 14%);
+      --ra-surface-2:     color-mix(in srgb, var(--ra-surface) 70%, ${PURPLE[800]} 30%);
+      --ra-surface-glass: color-mix(in srgb, var(--ra-surface) 82%, transparent);
+      --ra-text:          var(--fill-primary, #e5e7eb);
+      --ra-text-strong:   var(--fill-primary, #f9fafb);
+      --ra-text-muted:    var(--fill-secondary, #9ca3af);
+      --ra-text-brand:    var(--ra-purple-300);
+      --ra-border:        color-mix(in srgb, var(--ra-purple-400) 20%, transparent);
+      --ra-border-strong: color-mix(in srgb, var(--ra-purple-400) 40%, transparent);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       transition-duration: 0ms !important;
