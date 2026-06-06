@@ -93,6 +93,19 @@ function t(key: string): string {
   return getString(key);
 }
 
+function isStandalonePdf(item: any): boolean {
+  if (!item) return false;
+  if (item.isRegularItem?.()) return false;
+  if (item.parentItem || item.parentID) return false;
+  try {
+    if (typeof item.isPDFAttachment === "function" && item.isPDFAttachment()) return true;
+  } catch (_) {}
+  const ct = String(item.attachmentContentType || "");
+  if (ct.toLowerCase() === "application/pdf") return true;
+  const path = String(item.attachmentPath || item.path || "");
+  return path.toLowerCase().endsWith(".pdf");
+}
+
 export default class SidebarView {
   private body: HTMLElement | null = null;
   private messagesContainer: HTMLDivElement | null = null;
@@ -1059,6 +1072,7 @@ export default class SidebarView {
       if (item.parentID) {
         return Zotero.Items.get(item.parentID);
       }
+      if (isStandalonePdf(item)) return item;
     } catch (_) {}
     return null;
   }

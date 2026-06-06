@@ -22,7 +22,7 @@ import { openKnowledgeWikiWindow } from "../wiki";
 import { hasPdfAttachment, openItemInReader, openItemInZotero } from "../wiki/ZoteroOpeners";
 import { buildGraphCanvas, type GraphCanvasHandle, type ViewMode } from "./GraphCanvas";
 import { enqueueRetry } from "./KGPipeline";
-import { kgStore, type KGConceptNode, type KGEdge, type KGEdgeRole, type KGEdgeType, type KGPaperState, type KGState, type PaperReference, type ReferencedItem } from "./KGStore";
+import { kgStore, type KGConceptNode, type KGEdge, type KGEdgeRole, type KGEdgeType, type KGPaperState, type KGState, type ReferencedItem } from "./KGStore";
 
 const CONCEPT_DEGREE_THRESHOLD = 2;
 
@@ -514,8 +514,10 @@ function buildDetailContent(
   retryBtn.addEventListener("click", async () => {
     retryBtn.disabled = true;
     try {
+      Zotero.debug(`[RA] Retry clicked for paper: ${paper.itemKey}`);
       await kgStore.updatePaper(paper.itemKey, { status: "pending", errorMsg: undefined });
       enqueueRetry(paper.itemKey);
+      Zotero.debug(`[RA] Retry enqueued for paper: ${paper.itemKey}`);
     } catch (_) {}
   });
   actionRow.appendChild(retryBtn);
@@ -644,6 +646,8 @@ function appendReferencedItemBlock(
   panel: HTMLElement,
   labelText: string,
   values: ReferencedItem[] | undefined,
+  state?: KGState,
+  onSelectPeer?: (itemKey: string) => void,
 ): void {
   if (!values || values.length === 0) return;
   const block = createHTMLElement(doc, "div", `${ref}-kg-summary-block`);
@@ -661,6 +665,13 @@ function appendReferencedItemBlock(
     roleEl.textContent = roleLabel(item.role);
     row.append(name, roleEl);
     if (item.evidence) row.title = item.evidence;
+
+    const matchedConcept = findConceptByName(item.name, state?.concepts);
+    if (matchedConcept && onSelectPeer) {
+      row.classList.add(`${ref}-kg-referenced-row-clickable`);
+      row.addEventListener("click", () => onSelectPeer(matchedConcept.id));
+    }
+
     list.appendChild(row);
   }
   block.appendChild(list);
@@ -674,6 +685,18 @@ function roleLabel(role: ReferencedItem["role"]): string {
     case "cited-only": return "仅引用";
     default: return "使用";
   }
+}
+
+function findConceptByName(
+  name: string,
+  concepts: KGConceptNode[] | undefined,
+): KGConceptNode | undefined {
+  if (!concepts || !name) return undefined;
+  const needle = name.toLowerCase().trim();
+  return concepts.find((c) =>
+    c.canonicalLabel.toLowerCase() === needle ||
+    c.aliases.some((a) => a.toLowerCase() === needle),
+  );
 }
 
 function appendConceptBlock(
@@ -901,9 +924,8 @@ function buildSummaryPanel(
   append("kg-summary-contributions", summary.contributions);
   appendRaw("本文提出的方法/模型", summary.ownedMethodNames);
   appendRaw("本文发布的数据/Benchmark", summary.proposedDatasets);
-  appendReferencedItemBlock(doc, ref, panel, "引用方法", summary.referencedMethods);
-  appendReferencedItemBlock(doc, ref, panel, "引用数据集", summary.referencedDatasets);
-  appendRaw("参考文献", (summary.references || []).slice(0, 20).map(referenceLine));
+  appendReferencedItemBlock(doc, ref, panel, "引用方法", summary.referencedMethods, state, onSelectPeer);
+  appendReferencedItemBlock(doc, ref, panel, "引用数据集", summary.referencedDatasets, state, onSelectPeer);
   appendRaw("局限", summary.limitations);
   // Legacy v6/v8 fields rendered if present (during migration window).
   append("kg-summary-methods", summary.methods);
@@ -1084,16 +1106,6 @@ function conceptTypeLabel(type: string): string {
   }
 }
 
-function referenceLine(r: PaperReference): string {
-  return [r.title || r.raw, r.authors, r.year, r.doi].filter(Boolean).join(" | ");
-}
-
-/**
- * Bring the user back to Zotero's main window with the given item selected,
- * so they can attach a PDF, fill in an abstract, or just trigger Zotero's
- * fulltext indexing by opening the PDF. After they're done they can come
- * back to the KG window and click "重试" with usable content.
- */
 // ---------------------------------------------------------------------------
 // New helpers for M5+ design
 // ---------------------------------------------------------------------------
