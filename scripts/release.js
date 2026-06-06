@@ -50,7 +50,7 @@ async function main() {
   fs.copyFileSync("builds/update.json", "builds/update.json.release");
 
   console.log("\n📝 Creating git commit and tag...");
-  run("git add package.json package-lock.json builds/");
+  run("git add package.json");
   run(`git commit -m "chore: release v${version}"`);
   run(`git tag v${version}`);
 
