@@ -7,18 +7,22 @@
     "addonID": "reading-assistant@zotero-llm.org",
     "addonRef": "readingassistant",
     "addonInstance": "ReadingAssistant",
-    "releasepage": "",
-    "updaterdf": "https://github.com/zotero-llm/zotero-reading-assistant/releases/download/release/update.json"
+    "releasepage": "https://github.com/yiyabo/zotero-reading-assistant/releases",
+    "updaterdf": "https://github.com/yiyabo/zotero-reading-assistant/releases/latest/download/update.json",
+    "updateLink": "https://github.com/yiyabo/zotero-reading-assistant/releases/latest/download/zotero-reading-assistant.xpi"
   },
   "main": "src/index.ts",
   "scripts": {
-    "build-dev": "cross-env NODE_ENV=development node scripts/build.js",
+    "build": "node scripts/build.js",
     "build-prod": "cross-env NODE_ENV=production node scripts/build.js",
-    "build": "concurrently -c auto npm:build-prod npm:tsc",
-    "tsc": "tsc --noEmit",
+    "build-dev": "cross-env NODE_ENV=development node scripts/build.js",
     "start": "node scripts/start.js",
     "stop": "node scripts/stop.js",
-    "restart": "npm run build-dev && npm run stop && npm run start"
+    "restart": "npm run build-dev && npm run stop && npm run start",
+    "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor",
+    "release:major": "node scripts/release.js major"
   },
   "repository": {
     "type": "git",

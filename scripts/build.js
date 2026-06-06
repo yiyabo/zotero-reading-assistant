@@ -191,6 +191,8 @@ async function main() {
 
   console.log("[Build] Addon prepare OK");
 
+  copyFileSync("update.json", path.join(buildDir, "update.json"));
+
   await compressing.zip.compressDir(
     path.join(buildDir, "addon"),
     path.join(buildDir, `${name}.xpi`),
