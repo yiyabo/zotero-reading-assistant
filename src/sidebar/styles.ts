@@ -919,7 +919,7 @@ export function buildSidebarStyles(addonRef: string): string {
         inset: 0;
         z-index: 20;
         display: none;
-        align-items: flex-end;
+        align-items: center;
         justify-content: center;
         padding: 12px;
         background: color-mix(in srgb, var(--ra-text) 16%, transparent);
@@ -931,15 +931,15 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-followup-modal {
-        position: absolute;
+        position: relative;
         display: flex;
         flex-direction: column;
         width: calc(100% - 24px);
-        height: min(560px, calc(100% - 24px));
-        max-width: calc(100% - 24px);
-        max-height: calc(100% - 24px);
-        min-width: min(320px, calc(100% - 24px));
-        min-height: min(320px, calc(100% - 24px));
+        height: calc(100% - 24px);
+        max-width: 900px;
+        max-height: 700px;
+        min-width: min(480px, calc(100% - 24px));
+        min-height: min(400px, calc(100% - 24px));
         overflow: hidden;
         border: 1px solid color-mix(in srgb, var(--ra-border) 75%, var(--ra-secondary));
         border-radius: var(--ra-radius-xl);
@@ -951,6 +951,50 @@ export function buildSidebarStyles(addonRef: string): string {
 
       .${addonRef}-followup-modal.${addonRef}-followup-modal-resizing {
         user-select: none;
+      }
+
+      .${addonRef}-followup-content {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .${addonRef}-followup-left {
+        display: flex;
+        flex-direction: column;
+        width: 45%;
+        min-width: 200px;
+        border-right: 1px solid color-mix(in srgb, var(--ra-border) 70%, transparent);
+        background: var(--ra-surface-1);
+      }
+
+      .${addonRef}-followup-history-label {
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ra-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid color-mix(in srgb, var(--ra-border) 50%, transparent);
+        flex-shrink: 0;
+      }
+
+      .${addonRef}-followup-history {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 12px;
+        -moz-user-select: text;
+        user-select: text;
+      }
+
+      .${addonRef}-followup-right {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
       }
 
       .${addonRef}-followup-resize-handle {
@@ -1060,33 +1104,239 @@ export function buildSidebarStyles(addonRef: string): string {
         line-height: 1.5;
       }
 
-      .${addonRef}-followup-input-dock {
+      /* Standalone followup window styles */
+      .${addonRef}-followup-container,
+      .${addonRef}-followup-container * {
+        box-sizing: border-box;
+      }
+
+      .${addonRef}-followup-container {
         display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        background: var(--ra-surface);
+      }
+
+      .${addonRef}-followup-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--ra-border);
+        flex-shrink: 0;
+        background: var(--ra-surface);
+      }
+
+      .${addonRef}-followup-header-icon {
+        width: 18px;
+        height: 18px;
+        color: var(--ra-brand);
+        flex-shrink: 0;
+      }
+
+      .${addonRef}-followup-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--ra-text);
+        letter-spacing: -0.01em;
+      }
+
+      .${addonRef}-followup-panes {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .${addonRef}-followup-left {
         flex: 0 0 auto;
-        gap: 8px;
-        align-items: flex-end;
-        padding: 10px 12px 12px;
-        border-top: 1px solid color-mix(in srgb, var(--ra-border) 70%, transparent);
+        width: 40%;
+        max-width: 60%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--ra-surface);
+        border-right: 1px solid var(--ra-border);
+      }
+
+      .${addonRef}-followup-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--ra-surface);
+      }
+
+      .${addonRef}-followup-divider {
+        flex: 0 0 3px;
+        cursor: col-resize;
+        background: transparent;
+        position: relative;
+        margin: 0 -1px;
+        z-index: 1;
+        transition: background var(--ra-motion-fast) var(--ra-ease-out);
+      }
+
+      .${addonRef}-followup-divider::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 4px;
+        height: 32px;
+        border-radius: 2px;
+        background: var(--ra-border);
+        opacity: 0;
+        transition: opacity var(--ra-motion-fast) var(--ra-ease-out), background var(--ra-motion-fast) var(--ra-ease-out);
+      }
+
+      .${addonRef}-followup-divider:hover {
+        background: color-mix(in srgb, var(--ra-brand) 8%, transparent);
+      }
+
+      .${addonRef}-followup-divider:hover::before {
+        opacity: 1;
+        background: var(--ra-brand);
+      }
+
+      .${addonRef}-followup-pane-label {
+        padding: 12px 16px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ra-text-muted);
+        letter-spacing: 0;
+        border-bottom: 1px solid var(--ra-border);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .${addonRef}-followup-pane-label::before {
+        content: "";
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--ra-brand);
+        opacity: 0.6;
+      }
+
+      .${addonRef}-followup-messages {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 24px 28px;
+        font-size: 14px;
+        -moz-user-select: text;
+        user-select: text;
+      }
+
+      .${addonRef}-followup-messages > .${addonRef}-message {
+        width: 100%;
+        max-width: 720px;
+      }
+
+      .${addonRef}-followup-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        width: 100%;
+        gap: 12px;
+        color: var(--ra-text-muted);
+        font-size: 13px;
+        text-align: center;
+        padding: 40px 24px;
+      }
+
+      .${addonRef}-followup-empty-icon {
+        width: 32px;
+        height: 32px;
+        opacity: 0.4;
+        margin-bottom: 4px;
+      }
+
+      .${addonRef}-followup-input-dock {
+        flex: 0 0 auto;
+        margin: 0 14px 12px;
+        position: relative;
+        border: 1px solid color-mix(in srgb, var(--ra-border) 88%, var(--ra-secondary));
+        border-radius: var(--ra-radius-xl);
+        background: var(--ra-surface);
+        box-shadow:
+          0 8px 20px color-mix(in srgb, var(--ra-brand) 10%, transparent),
+          inset 0 1px 0 color-mix(in srgb, var(--ra-surface) 80%, transparent);
+        transition: border-color var(--ra-motion-fast) var(--ra-ease-out), box-shadow var(--ra-motion-fast) var(--ra-ease-out);
+      }
+
+      .${addonRef}-followup-input-dock:focus-within {
+        border-color: color-mix(in srgb, var(--ra-secondary) 55%, transparent);
+        box-shadow:
+          0 10px 28px color-mix(in srgb, var(--ra-brand) 16%, transparent),
+          0 0 0 3px color-mix(in srgb, var(--ra-secondary) 14%, transparent);
       }
 
       .${addonRef}-followup-input {
-        flex: 1 1 auto;
-        min-width: 0;
+        width: 100%;
+        min-height: 44px;
         max-height: 120px;
         resize: none;
-        padding: 9px 11px;
-        border: 1px solid color-mix(in srgb, var(--ra-border) 85%, var(--ra-secondary));
-        border-radius: 14px;
-        background: var(--ra-surface);
+        padding: 10px 44px 10px 12px;
+        border: none;
+        border-radius: var(--ra-radius-xl);
+        outline: none;
+        background: transparent;
         color: var(--ra-text);
         font: inherit;
-        line-height: 1.45;
-        outline: none;
+        font-size: var(--ra-fs-base);
+        line-height: var(--ra-lh-base);
       }
 
-      .${addonRef}-followup-input:focus {
-        border-color: color-mix(in srgb, var(--ra-secondary) 55%, transparent);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--ra-secondary) 12%, transparent);
+      .${addonRef}-followup-input::placeholder {
+        color: color-mix(in srgb, var(--ra-text-muted) 88%, transparent);
+        opacity: 1;
+      }
+
+      .${addonRef}-followup-send-btn {
+        position: absolute;
+        right: 6px;
+        bottom: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        border-radius: 10px;
+        background: var(--ra-gradient);
+        color: #fff;
+        cursor: pointer;
+        transition: transform var(--ra-motion-fast) var(--ra-ease-out), box-shadow var(--ra-motion-base) var(--ra-ease-out);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--ra-brand) 18%, transparent);
+      }
+
+      .${addonRef}-followup-send-btn svg {
+        width: 17px;
+        height: 17px;
+        transform: translate(-1px, 1px);
+      }
+
+      .${addonRef}-followup-send-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px color-mix(in srgb, var(--ra-brand) 45%, transparent);
+      }
+
+      .${addonRef}-followup-send-btn:active {
+        transform: translateY(0) scale(0.94);
       }
 
       .${addonRef}-followup-send {

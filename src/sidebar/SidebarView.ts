@@ -2,6 +2,7 @@ import { config } from "../../package.json";
 import { kgStore } from "../features/knowledge-graph/KGStore";
 import { openKnowledgeGraphWindow } from "../features/knowledge-graph";
 import { openKnowledgeWikiWindow } from "../features/wiki";
+import { openFollowupWindow, FollowupWindowContext } from "../features/followup/FollowupWindow";
 import { getLLMManager } from "../modules/llm/LLMManager";
 import { Message, MessageContentPart } from "../modules/llm/types";
 import { getString } from "../modules/utils/locale";
@@ -134,12 +135,14 @@ export default class SidebarView {
   private convDropdownDocListener: ((e: Event) => void) | null = null;
   private followupOverlayEl: HTMLDivElement | null = null;
   private followupModalEl: HTMLDivElement | null = null;
+  private followupHistoryEl: HTMLDivElement | null = null;
   private followupMessagesEl: HTMLDivElement | null = null;
   private followupInputEl: HTMLTextAreaElement | null = null;
   private followupSendBtn: HTMLButtonElement | null = null;
   private currentFollowupThread: FollowupThread | null = null;
   private followupBusy = false;
   private followupResizeCleanup: (() => void) | null = null;
+  private followupParentMessageIndex = -1;
   private pendingImages: string[] = [];
   private userScrolledUp = false;
   private maxHeightCleanup: (() => void) | null = null;
@@ -1259,17 +1262,6 @@ export default class SidebarView {
           this.updateMessageContent(assistantMessageDiv, this.formatErrorMessage(error.message), true);
         },
       });
-
-      if (!completed && fullResponse) {
-        this.updateMessageContent(assistantMessageDiv, fullResponse, true);
-        const parsed = splitReasoningContent(fullResponse);
-        this.messages.push({
-          role: "assistant",
-          content: parsed.answer || fullResponse,
-        });
-        this.saveConversation();
-        this.renderMessages();
-      }
     } catch (error: any) {
       this.updateMessageContent(assistantMessageDiv, this.formatErrorMessage(error.message || String(error)), true);
     } finally {
@@ -1576,17 +1568,6 @@ export default class SidebarView {
           this.updateMessageContent(assistantMessageDiv, this.formatErrorMessage(error.message), true);
         },
       });
-
-      if (!completed && fullResponse) {
-        this.updateMessageContent(assistantMessageDiv, fullResponse, true);
-        const parsed = splitReasoningContent(fullResponse);
-        this.messages.push({
-          role: "assistant",
-          content: parsed.answer || fullResponse,
-        });
-        this.saveConversation();
-        this.renderMessages();
-      }
     } catch (error: any) {
       this.updateMessageContent(assistantMessageDiv, this.formatErrorMessage(error.message || String(error)), true);
     } finally {
@@ -1719,17 +1700,6 @@ export default class SidebarView {
           },
         });
       }
-
-      if (!completed && fullResponse) {
-        this.updateMessageContent(assistantMessageDiv, fullResponse, true);
-        const parsed = splitReasoningContent(fullResponse);
-        this.messages.push({
-          role: "assistant",
-          content: parsed.answer || fullResponse,
-        });
-        this.saveConversation();
-        this.renderMessages();
-      }
     } catch (error: any) {
       this.hideProgress();
       showToast("Error", this.formatErrorMessage(error.message || String(error)), 5000);
@@ -1808,18 +1778,43 @@ export default class SidebarView {
       return;
     }
     if (!this.currentPaperKey || !this.currentConversationId) return;
-    const thread = getOrCreateFollowupThread(
-      this.currentPaperKey,
-      this.currentConversationId,
+
+    const anchorText = sourceText || this.messageContentToText(this.messages[parentMessageIndex]?.content);
+    const msg = this.messages[parentMessageIndex];
+    const historyMessages = msg
+      ? [{
+          role: msg.role,
+          content: typeof msg.content === "string" ? msg.content : this.messageContentToText(msg.content),
+          messageIndex: parentMessageIndex,
+        }]
+      : [];
+
+    const ctx: FollowupWindowContext = {
+      historyMessages,
+      anchorText,
       parentMessageIndex,
-      sourceText || this.messageContentToText(this.messages[parentMessageIndex]?.content),
-    );
-    this.currentFollowupThread = thread;
-    this.ensureFollowupDialog();
-    this.renderFollowupDialog();
-    this.followupOverlayEl?.classList.add(`${config.addonRef}-followup-overlay-open`);
-    this.applyFollowupWindowSize();
-    this.followupInputEl?.focus();
+      paperKey: this.currentPaperKey,
+      conversationId: this.currentConversationId,
+    };
+
+    const parentWin = this.body?.ownerDocument?.defaultView || null;
+    openFollowupWindow(parentWin, ctx);
+  }
+
+  private populateFollowupHistory(): void {
+    if (!this.followupHistoryEl || !this.messagesContainer) return;
+    this.followupHistoryEl.innerHTML = "";
+    const messageEls = this.messagesContainer.querySelectorAll(`.${config.addonRef}-message`);
+    for (let i = 0; i <= this.followupParentMessageIndex && i < messageEls.length; i++) {
+      const clone = messageEls[i].cloneNode(true) as HTMLElement;
+      clone.querySelectorAll("button").forEach((btn) => btn.remove());
+      this.followupHistoryEl.appendChild(clone);
+    }
+    setTimeout(() => {
+      if (this.followupHistoryEl) {
+        this.followupHistoryEl.scrollTop = this.followupHistoryEl.scrollHeight;
+      }
+    }, 0);
   }
 
   private ensureFollowupDialog(): void {
@@ -1846,6 +1841,16 @@ export default class SidebarView {
     closeBtn.addEventListener("click", () => this.closeFollowupDialog());
     header.append(title, closeBtn);
 
+    const contentWrapper = createHTMLElement(doc, "div", `${config.addonRef}-followup-content`);
+
+    const leftPane = createHTMLElement(doc, "div", `${config.addonRef}-followup-left`);
+    const historyLabel = createHTMLElement(doc, "div", `${config.addonRef}-followup-history-label`);
+    historyLabel.textContent = t("followup-history-label");
+    const history = createHTMLElement(doc, "div", `${config.addonRef}-followup-history`);
+    history.id = `${config.addonRef}-followup-history`;
+    leftPane.append(historyLabel, history);
+
+    const rightPane = createHTMLElement(doc, "div", `${config.addonRef}-followup-right`);
     const anchor = createHTMLElement(doc, "div", `${config.addonRef}-followup-anchor`);
     const anchorLabel = createHTMLElement(doc, "div", `${config.addonRef}-followup-anchor-label`);
     anchorLabel.textContent = t("followup-source-label");
@@ -1880,17 +1885,21 @@ export default class SidebarView {
     send.addEventListener("click", () => this.handleFollowupInput());
     dock.append(input, send);
 
+    rightPane.append(anchor, messages, dock);
+    contentWrapper.append(leftPane, rightPane);
+
     const resizeHandle = createHTMLElement(doc, "div", `${config.addonRef}-followup-resize-handle`);
     resizeHandle.title = t("followup-resize-tip");
     resizeHandle.setAttribute("aria-label", t("followup-resize-tip"));
     resizeHandle.addEventListener("mousedown", (e: MouseEvent) => this.startFollowupResize(e));
 
-    modal.append(header, anchor, messages, dock, resizeHandle);
+    modal.append(header, contentWrapper, resizeHandle);
     overlay.appendChild(modal);
     host.appendChild(overlay);
 
     this.followupOverlayEl = overlay;
     this.followupModalEl = modal;
+    this.followupHistoryEl = history;
     this.followupMessagesEl = messages;
     this.followupInputEl = input;
     this.followupSendBtn = send;
@@ -2112,18 +2121,6 @@ export default class SidebarView {
           });
         },
       });
-
-      if (!completed && fullResponse) {
-        const parsed = splitReasoningContent(fullResponse);
-        const targetThread = this.currentFollowupThread || thread;
-        targetThread.messages.push({
-          role: "assistant",
-          content: parsed.answer || fullResponse,
-        });
-        const savedThread = saveFollowupThreadMessages(targetThread.paperKey, targetThread.conversationId, targetThread.id, targetThread.messages);
-        if (savedThread) this.currentFollowupThread = savedThread;
-        this.renderFollowupMessages();
-      }
     } catch (error: any) {
       updateMessageContentDom({
         messageDiv: assistantMessageDiv,

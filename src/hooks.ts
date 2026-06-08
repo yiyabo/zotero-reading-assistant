@@ -11,6 +11,7 @@ import {
   initKnowledgeWiki,
   shutdownKnowledgeWiki,
 } from "./features/wiki";
+import { initFollowup } from "./features/followup";
 import { resetLLMManager } from "./modules/llm/LLMManager";
 import { initLocale } from "./modules/utils/locale";
 import { PrefKeys } from "./modules/utils/prefs";
@@ -88,6 +89,7 @@ async function onStartup() {
   registerPreferenceObservers();
   initKnowledgeGraph();
   initKnowledgeWiki();
+  initFollowup();
 }
 
 async function onMainWindowLoad(win: Window) {
