@@ -112,11 +112,16 @@ function scheduleRenderer(win: Window, ctx: FollowupWindowContext, source: strin
 
 function tryRender(win: Window, ctx: FollowupWindowContext, source: string): boolean {
   if (!isUsableWindow(win)) return true;
-  const root = win.document.getElementById("followup-root");
-  fileLog(`FollowupWindow: render check ${source}, root=${!!root}, renderer=${!!renderer}`);
+  const doc = win.document;
+  const root = getFollowupRoot(doc);
+  fileLog(
+    `FollowupWindow: render check ${source}, ready=${doc.readyState}, ` +
+      `href=${String(doc.location?.href || "")}, body=${!!doc.body}, ` +
+      `root=${!!root}, renderer=${!!renderer}`,
+  );
   if (!root || !renderer) return false;
   try {
-    try { (win.document.documentElement as any).setAttribute("data-ra-followup", "1"); } catch (_) {}
+    try { (doc.documentElement as any).setAttribute("data-ra-followup", "1"); } catch (_) {}
     renderer(win, ctx);
     return true;
   } catch (e: any) {
@@ -129,13 +134,30 @@ function tryRender(win: Window, ctx: FollowupWindowContext, source: string): boo
 
 function renderWindowError(win: Window, message: string): void {
   try {
-    const root = win.document.getElementById("followup-root");
+    const root = getFollowupRoot(win.document);
     if (!root) return;
     const box = win.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
     box.setAttribute("style", "box-sizing:border-box;margin:24px;padding:16px;border:1px solid #fecaca;border-radius:12px;background:#fef2f2;color:#991b1b;font:13px system-ui,sans-serif;line-height:1.5;");
     box.textContent = "Follow-up window failed to render: " + message;
     root.replaceChildren(box);
   } catch (_) {}
+}
+
+function getFollowupRoot(doc: Document): HTMLElement | null {
+  const explicit = doc.getElementById("followup-root") as HTMLElement | null;
+  if (explicit) return explicit;
+  const body = doc.body as HTMLElement | null;
+  if (!body) return null;
+  try {
+    body.id = "followup-root";
+    body.style.margin = "0";
+    body.style.width = "100%";
+    body.style.height = "100%";
+    body.style.minHeight = "0";
+    body.style.display = "flex";
+    body.style.flexDirection = "column";
+  } catch (_) {}
+  return body;
 }
 
 export function closeFollowupWindow(): void {

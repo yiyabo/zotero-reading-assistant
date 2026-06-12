@@ -8,6 +8,11 @@ import {
   clearImagePreview,
 } from "../../sidebar/InputDock";
 import {
+  FollowupThread,
+  getOrCreateFollowupThread,
+  saveFollowupThreadMessages,
+} from "../../sidebar/ConversationStore";
+import {
   appendMessage,
   createMessagePlaceholder,
   updateMessageContent,
@@ -24,7 +29,7 @@ type FollowupMessage = {
 
 export function renderFollowupWindow(win: Window, ctx: FollowupWindowContext): void {
   const doc = win.document;
-  const root = doc.getElementById("followup-root");
+  const root = getFollowupRoot(doc);
   if (!root) return;
 
   root.replaceChildren();
@@ -32,7 +37,7 @@ export function renderFollowupWindow(win: Window, ctx: FollowupWindowContext): v
   injectSharedStyles(doc, config.addonRef);
   const style = doc.createElement("style");
   style.textContent = buildSidebarStyles(config.addonRef);
-  doc.head.appendChild(style);
+  (doc.head || doc.documentElement).appendChild(style);
 
   const container = createHTMLElement(doc, "div", `${config.addonRef}-followup-container`);
   root.appendChild(container);
@@ -176,12 +181,25 @@ export function renderFollowupWindow(win: Window, ctx: FollowupWindowContext): v
   inputDock.append(imagePreview, input, sendBtn);
   rightPane.appendChild(inputDock);
 
-  const messages: FollowupMessage[] = [];
+  let activeThread: FollowupThread = getOrCreateFollowupThread(
+    ctx.paperKey,
+    ctx.conversationId,
+    ctx.parentMessageIndex,
+    ctx.anchorText,
+  );
+  const messages: FollowupMessage[] = activeThread.messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
   let busy = false;
 
   function renderMessages() {
     const existing = rightMessages.querySelectorAll(`.${config.addonRef}-message`);
     existing.forEach((el) => el.remove());
+    if (messages.length === 0) {
+      if (!emptyState.parentNode) rightMessages.appendChild(emptyState);
+      rightMessages.scrollTop = rightMessages.scrollHeight;
+      return;
+    }
     if (emptyState.parentNode) emptyState.remove();
     for (const msg of messages) {
       appendMessage({
@@ -195,6 +213,16 @@ export function renderFollowupWindow(win: Window, ctx: FollowupWindowContext): v
       });
     }
     rightMessages.scrollTop = rightMessages.scrollHeight;
+  }
+
+  function persistMessages() {
+    const saved = saveFollowupThreadMessages(
+      ctx.paperKey,
+      ctx.conversationId,
+      activeThread.id,
+      messages,
+    );
+    if (saved) activeThread = saved;
   }
 
   async function handleSend(userText: string) {
@@ -220,11 +248,13 @@ export function renderFollowupWindow(win: Window, ctx: FollowupWindowContext): v
     }
 
     messages.push({ role: "user", content });
+    persistMessages();
     renderMessages();
 
     const llm = getLLMManager();
     if (!llm.isReady()) {
       messages.push({ role: "assistant", content: t("message-llm-not-configured") });
+      persistMessages();
       renderMessages();
       return;
     }
@@ -280,37 +310,62 @@ export function renderFollowupWindow(win: Window, ctx: FollowupWindowContext): v
             },
           });
           messages.push({ role: "assistant", content: fullResponse });
+          persistMessages();
           busy = false;
         },
         onError: (err) => {
+          const errorText = `Error: ${err.message}`;
           updateMessageContent({
             messageDiv: placeholder,
             addonRef: config.addonRef,
-            content: `Error: ${err.message}`,
+            content: errorText,
             isComplete: true,
             onScroll: () => {
               rightMessages.scrollTop = rightMessages.scrollHeight;
             },
           });
+          messages.push({ role: "assistant", content: errorText });
+          persistMessages();
           busy = false;
         },
       });
     } catch (err: any) {
+      const errorText = `Error: ${err.message}`;
       updateMessageContent({
         messageDiv: placeholder,
         addonRef: config.addonRef,
-        content: `Error: ${err.message}`,
+        content: errorText,
         isComplete: true,
         onScroll: () => {
           rightMessages.scrollTop = rightMessages.scrollHeight;
         },
       });
+      messages.push({ role: "assistant", content: errorText });
+      persistMessages();
       busy = false;
     }
   }
 
+  renderMessages();
   setTimeout(() => {
     leftMessages.scrollTop = leftMessages.scrollHeight;
     input.focus();
   }, 100);
+}
+
+function getFollowupRoot(doc: Document): HTMLElement | null {
+  const explicit = doc.getElementById("followup-root") as HTMLElement | null;
+  if (explicit) return explicit;
+  const body = doc.body as HTMLElement | null;
+  if (!body) return null;
+  try {
+    body.id = "followup-root";
+    body.style.margin = "0";
+    body.style.width = "100%";
+    body.style.height = "100%";
+    body.style.minHeight = "0";
+    body.style.display = "flex";
+    body.style.flexDirection = "column";
+  } catch (_) {}
+  return body;
 }

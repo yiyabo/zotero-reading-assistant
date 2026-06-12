@@ -22,6 +22,7 @@ type PaperContextOptions = {
   maxPages?: number;
   deepRead?: boolean;
   renderImages?: boolean;
+  openReader?: boolean;
   onStats?: (stats: PaperContextStats) => void;
   onProgress?: (stage: string, current: number, total: number) => void;
 };
@@ -533,7 +534,9 @@ export async function buildCurrentPaperContext(options: PaperContextOptions = {}
   const currentItem = options.item || getCurrentPDFItem();
   const parentItem = getParentItem(currentItem);
   const targetItem = currentItem || parentItem;
-  let reader = await ensureReaderForItem(targetItem);
+  let reader = options.openReader === false
+    ? getReaderForItem(targetItem)
+    : await ensureReaderForItem(targetItem);
   const sections: string[] = [];
   const images: string[] = [];
   const stats: PaperContextStats = {

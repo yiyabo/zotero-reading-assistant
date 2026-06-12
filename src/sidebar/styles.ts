@@ -688,6 +688,7 @@ export function buildSidebarStyles(addonRef: string): string {
 
       /* KG context bar — sits between messages and the input dock */
       .${addonRef}-context-bar {
+        position: relative;
         display: flex;
         flex: 0 0 auto;
         flex-wrap: wrap;
@@ -745,6 +746,22 @@ export function buildSidebarStyles(addonRef: string): string {
         border-color: var(--ra-border);
         opacity: 0.6;
       }
+      .${addonRef}-context-bar-reference {
+        color: var(--ra-text);
+        background: var(--ra-surface);
+        border-color: color-mix(in srgb, var(--ra-border) 80%, var(--ra-brand));
+      }
+      .${addonRef}-context-bar-reference:hover:not(:disabled),
+      .${addonRef}-context-bar-reference.${addonRef}-context-bar-reference-open {
+        color: var(--ra-brand-active);
+        background: var(--ra-surface-1);
+        border-color: color-mix(in srgb, var(--ra-brand) 52%, transparent);
+      }
+      .${addonRef}-context-bar-reference.${addonRef}-context-bar-reference-active {
+        color: var(--ra-brand-active);
+        background: color-mix(in srgb, var(--ra-brand) 10%, var(--ra-surface));
+        border-color: color-mix(in srgb, var(--ra-brand) 44%, transparent);
+      }
       .${addonRef}-context-bar-wiki {
         color: var(--ra-brand-active);
         background: var(--ra-surface);
@@ -773,6 +790,230 @@ export function buildSidebarStyles(addonRef: string): string {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .${addonRef}-reference-picker {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(100% + 8px);
+        z-index: 14;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: min(460px, calc(var(--ra-panel-height, 560px) - 140px));
+        min-height: 260px;
+        padding: 10px;
+        border: 1px solid color-mix(in srgb, var(--ra-border) 75%, var(--ra-brand));
+        border-radius: var(--ra-radius-lg);
+        background:
+          linear-gradient(180deg, color-mix(in srgb, var(--ra-brand) 5%, transparent), transparent 110px),
+          var(--ra-surface);
+        box-shadow:
+          0 18px 44px color-mix(in srgb, var(--ra-text) 16%, transparent),
+          0 10px 28px color-mix(in srgb, var(--ra-brand) 14%, transparent);
+        overflow: hidden;
+      }
+      .${addonRef}-reference-picker-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .${addonRef}-reference-picker-title {
+        min-width: 0;
+        color: var(--ra-text);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .${addonRef}-reference-picker-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--ra-text-muted);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        appearance: none;
+      }
+      .${addonRef}-reference-picker-close:hover {
+        color: var(--ra-brand-active);
+        background: color-mix(in srgb, var(--ra-brand) 10%, transparent);
+      }
+      .${addonRef}-reference-selected {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 28px;
+        align-items: center;
+      }
+      .${addonRef}-reference-selected-empty {
+        color: var(--ra-text-muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .${addonRef}-reference-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        min-width: 0;
+        padding: 5px 8px;
+        border: 1px solid color-mix(in srgb, var(--ra-brand) 38%, transparent);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--ra-brand) 9%, var(--ra-surface));
+        color: var(--ra-brand-active);
+        font-size: 11px;
+        font-weight: 650;
+        cursor: pointer;
+        appearance: none;
+        line-height: 1.25;
+      }
+      .${addonRef}-reference-chip:hover {
+        background: color-mix(in srgb, var(--ra-brand) 15%, var(--ra-surface));
+      }
+      .${addonRef}-reference-chip-title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .${addonRef}-reference-chip-remove {
+        flex: 0 0 auto;
+        font-size: 13px;
+        line-height: 1;
+      }
+      .${addonRef}-reference-search {
+        width: 100%;
+        min-width: 0;
+        padding: 8px 10px;
+        border: 1px solid var(--ra-border);
+        border-radius: var(--ra-radius);
+        outline: none;
+        background: var(--ra-surface-1);
+        color: var(--ra-text);
+        font: inherit;
+        font-size: 12px;
+        line-height: 1.35;
+        appearance: none;
+      }
+      .${addonRef}-reference-search:focus {
+        border-color: color-mix(in srgb, var(--ra-brand) 55%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--ra-brand) 12%, transparent);
+      }
+      .${addonRef}-reference-result-label {
+        color: var(--ra-text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+      .${addonRef}-reference-results {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 2px 3px 2px 0;
+      }
+      .${addonRef}-reference-result {
+        appearance: none !important;
+        -moz-appearance: none !important;
+        display: grid !important;
+        grid-template-columns: 24px minmax(0, 1fr);
+        align-items: center;
+        column-gap: 8px;
+        width: 100%;
+        min-width: 0;
+        min-height: 50px;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 7px 10px;
+        border: 1px solid transparent;
+        border-radius: var(--ra-radius);
+        background: transparent !important;
+        color: var(--ra-text) !important;
+        text-align: left !important;
+        cursor: pointer;
+        transition: background 0.12s ease, border-color 0.12s ease;
+        box-shadow: none !important;
+        font: inherit !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        box-sizing: border-box;
+        overflow: hidden;
+        vertical-align: middle;
+      }
+      .${addonRef}-reference-result::-moz-focus-inner {
+        border: 0 !important;
+        padding: 0 !important;
+      }
+      .${addonRef}-reference-result:hover:not(:disabled) {
+        background: var(--ra-surface-1) !important;
+        border-color: var(--ra-border);
+      }
+      .${addonRef}-reference-result-selected {
+        background: color-mix(in srgb, var(--ra-brand) 9%, var(--ra-surface)) !important;
+        border-color: color-mix(in srgb, var(--ra-brand) 36%, transparent);
+      }
+      .${addonRef}-reference-result-disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .${addonRef}-reference-result-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        margin: 0 auto;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--ra-brand) 34%, transparent);
+        background: color-mix(in srgb, var(--ra-brand) 8%, transparent);
+        color: var(--ra-brand-active);
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1;
+      }
+      .${addonRef}-reference-result-body {
+        display: grid;
+        grid-template-rows: auto auto;
+        align-content: center;
+        gap: 2px;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+      }
+      .${addonRef}-reference-result-title {
+        overflow: hidden;
+        display: block;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--ra-text);
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.25;
+      }
+      .${addonRef}-reference-result-meta {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--ra-text-muted);
+        font-size: 11px;
+        line-height: 1.25;
+      }
+      .${addonRef}-reference-empty {
+        padding: 18px 10px;
+        color: var(--ra-text-muted);
+        font-size: 12px;
+        text-align: center;
       }
 
       /* Conversation switcher — sits at the very top of the panel and lets

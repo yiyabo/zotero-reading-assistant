@@ -37,12 +37,22 @@ import {
   formatErrorMessage as formatErrorMessageHelper,
   splitReasoningContent,
 } from "./MessageList";
+import {
+  buildReferencePaperPicker,
+  getReferencePaperItem,
+  referencePaperFromItem,
+  ReferencePaper,
+  ReferencePaperPickerHandle,
+} from "./ReferencePaperPicker";
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const FOLLOWUP_SIZE_PREF = `${config.addonRef}.followupWindowSize`;
 const FOLLOWUP_MIN_WIDTH = 320;
 const FOLLOWUP_MIN_HEIGHT = 320;
 const FOLLOWUP_EDGE_GAP = 12;
+const MAX_REFERENCE_PAPERS = 3;
+const REFERENCE_CONTEXT_CHARS = 70000;
+const CURRENT_CONTEXT_WITH_REFERENCES_CHARS = 160000;
 
 type FollowupWindowSize = {
   width: number;
@@ -56,6 +66,11 @@ type SectionProps = {
   tabType?: string;
   setEnabled?: (enabled: boolean) => void;
   setSectionSummary?: (summary: string) => void;
+};
+
+type ReferencePaperContext = {
+  paper: ReferencePaper;
+  context: PaperContextResult;
 };
 
 function _log(msg: string) {
@@ -151,6 +166,12 @@ export default class SidebarView {
   // the user push the currently-active paper into the knowledge graph or
   // jump straight to the graph window.
   private contextBarElement: HTMLDivElement | null = null;
+  private referenceBtn: HTMLButtonElement | null = null;
+  private referencePickerHandle: ReferencePaperPickerHandle | null = null;
+  private referencePickerDocListener: ((e: Event) => void) | null = null;
+  private referencePapers: ReferencePaper[] = [];
+  private referenceStateKey = "";
+  private referencePapersByConversation = new Map<string, ReferencePaper[]>();
   private kgAddBtn: HTMLButtonElement | null = null;
   private kgOpenBtn: HTMLButtonElement | null = null;
   private kgUnsubscribe: (() => void) | null = null;
@@ -236,10 +257,12 @@ export default class SidebarView {
             self.kgUnsubscribe = null;
           }
           self.closeConvDropdown();
+          self.closeReferencePicker();
           self.closeFollowupDialog();
           self.followupResizeCleanup?.();
           self.followupResizeCleanup = null;
           self.contextBarElement = null;
+          self.referenceBtn = null;
           self.kgAddBtn = null;
           self.kgOpenBtn = null;
           self.conversationBarElement = null;
@@ -373,6 +396,18 @@ export default class SidebarView {
     this.inputDockElement = root.querySelector(`#${config.addonRef}-input-dock`);
     this.sendButton = root.querySelector(`#${config.addonRef}-send`);
     this.statusElement = root.querySelector(`#${config.addonRef}-status`);
+    this.contextBarElement = root.querySelector(`#${config.addonRef}-context-bar`) as HTMLDivElement | null;
+    if (this.contextBarElement) {
+      this.referenceBtn = this.contextBarElement.querySelector(
+        `.${config.addonRef}-context-bar-reference`,
+      ) as HTMLButtonElement | null;
+      this.kgAddBtn = this.contextBarElement.querySelector(
+        `.${config.addonRef}-context-bar-add`,
+      ) as HTMLButtonElement | null;
+      this.kgOpenBtn = this.contextBarElement.querySelector(
+        `.${config.addonRef}-context-bar-open`,
+      ) as HTMLButtonElement | null;
+    }
 
     // Re-acquire the conversation bar refs from the live DOM in case the
     // previous mount got torn down (onDestroy nulls them) but the panel
@@ -417,6 +452,7 @@ export default class SidebarView {
     }
 
     this.updateStatus(item, tabType);
+    this.refreshReferenceButton();
     this.refreshContextBar();
     // Final refresh after refs were re-acquired above — switchConversation()
     // already ran but its refresh was a no-op back then because the bar refs
@@ -605,13 +641,16 @@ export default class SidebarView {
     // Persist the existing thread before swapping. saveConversation is a
     // no-op when there's no prior context (e.g. the very first mount).
     this.saveConversation();
+    this.saveReferenceState();
 
     this.currentPaperKey = paperKey;
     this.currentConversationId = activeId;
     this.paperIndex = index;
+    this.loadReferenceState();
     this.messages = loadMessagesFromStore(paperKey, activeId);
     this.currentMessageDiv = null;
     this.closeConvDropdown();
+    this.closeReferencePicker();
     this.closeFollowupDialog();
     this.renderMessages();
     this.refreshConversationBar();
@@ -628,6 +667,22 @@ export default class SidebarView {
     // first user message lands) flow into the title button.
     this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
     this.refreshConversationBar();
+  }
+
+  private getReferenceStateKey(): string {
+    return `${this.currentPaperKey || "global"}:${this.currentConversationId || ""}`;
+  }
+
+  private saveReferenceState(): void {
+    if (!this.referenceStateKey) return;
+    this.referencePapersByConversation.set(this.referenceStateKey, [...this.referencePapers]);
+  }
+
+  private loadReferenceState(): void {
+    const key = this.getReferenceStateKey();
+    this.referenceStateKey = key;
+    this.referencePapers = [...(this.referencePapersByConversation.get(key) || [])];
+    this.refreshReferenceButton();
   }
 
   private buildPanel(doc: Document): HTMLDivElement {
@@ -878,9 +933,11 @@ export default class SidebarView {
     if (!convId || convId === this.currentConversationId) return;
     if (!this.currentPaperKey) return;
     this.saveConversation();
+    this.saveReferenceState();
     setActiveConversationInStore(config.addonRef, this.currentPaperKey, convId);
     this.currentConversationId = convId;
     this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+    this.loadReferenceState();
     this.messages = loadMessagesFromStore(this.currentPaperKey, convId);
     this.currentMessageDiv = null;
     this.renderMessages();
@@ -891,12 +948,15 @@ export default class SidebarView {
   private createNewConversation(): void {
     if (!this.currentPaperKey) return;
     this.saveConversation();
+    this.saveReferenceState();
     const meta = createConversationInStore(config.addonRef, this.currentPaperKey);
     this.currentConversationId = meta.id;
     this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+    this.loadReferenceState();
     this.messages = [];
     this.currentMessageDiv = null;
     this.closeConvDropdown();
+    this.closeReferencePicker();
     this.renderMessages();
     this.refreshConversationBar();
   }
@@ -910,6 +970,8 @@ export default class SidebarView {
     if (!this.currentPaperKey || !this.currentConversationId) return;
     const win = this.body?.ownerDocument?.defaultView as Window | null;
     if (!this.confirmDelete(win)) return;
+    this.saveReferenceState();
+    this.referencePapersByConversation.delete(this.getReferenceStateKey());
     const newActive = deleteConversationFromStore(
       config.addonRef,
       this.currentPaperKey,
@@ -918,16 +980,19 @@ export default class SidebarView {
     this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
     if (newActive) {
       this.currentConversationId = newActive;
+      this.loadReferenceState();
       this.messages = loadMessagesFromStore(this.currentPaperKey, newActive);
     } else {
       // Deleted the last conversation — seed a fresh empty one.
       const meta = createConversationInStore(config.addonRef, this.currentPaperKey);
       this.currentConversationId = meta.id;
       this.paperIndex = loadPaperIndex(config.addonRef, this.currentPaperKey);
+      this.loadReferenceState();
       this.messages = [];
     }
     this.currentMessageDiv = null;
     this.closeConvDropdown();
+    this.closeReferencePicker();
     this.renderMessages();
     this.refreshConversationBar();
   }
@@ -1011,6 +1076,16 @@ export default class SidebarView {
     const bar = createHTMLElement(doc, "div", `${config.addonRef}-context-bar`);
     bar.id = `${config.addonRef}-context-bar`;
 
+    const referenceBtn = createHTMLElement(doc, "button", `${config.addonRef}-context-bar-btn`);
+    referenceBtn.type = "button";
+    referenceBtn.classList.add(`${config.addonRef}-context-bar-reference`);
+    referenceBtn.innerHTML = `<span class="${config.addonRef}-context-bar-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><path d="M8 6h8"/><path d="M8 10h6"/></svg></span><span class="${config.addonRef}-context-bar-label">${t("reference-sidebar-btn")}</span>`;
+    referenceBtn.title = t("reference-sidebar-tip");
+    referenceBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggleReferencePicker();
+    });
+
     const addBtn = createHTMLElement(doc, "button", `${config.addonRef}-context-bar-btn`);
     addBtn.type = "button";
     addBtn.classList.add(`${config.addonRef}-context-bar-add`);
@@ -1047,9 +1122,10 @@ export default class SidebarView {
       }
     });
 
-    bar.append(addBtn, wikiBtn, openBtn);
+    bar.append(referenceBtn, addBtn, wikiBtn, openBtn);
 
     this.contextBarElement = bar;
+    this.referenceBtn = referenceBtn;
     this.kgAddBtn = addBtn;
     this.kgOpenBtn = openBtn;
 
@@ -1060,6 +1136,105 @@ export default class SidebarView {
       this.kgUnsubscribe = kgStore.subscribe(() => this.refreshContextBar());
     }
     return bar;
+  }
+
+  private getCurrentReferencePaperKey(): string {
+    return referencePaperFromItem(this.currentItem)?.itemKey || "";
+  }
+
+  private toggleReferencePicker(): void {
+    if (this.referencePickerHandle) {
+      this.closeReferencePicker();
+    } else {
+      this.openReferencePicker();
+    }
+  }
+
+  private openReferencePicker(): void {
+    if (!this.contextBarElement) return;
+    this.closeReferencePicker();
+    const handle = buildReferencePaperPicker({
+      doc: this.contextBarElement.ownerDocument,
+      currentItemKey: this.getCurrentReferencePaperKey(),
+      maxSelected: MAX_REFERENCE_PAPERS,
+      getSelected: () => this.referencePapers,
+      onAdd: (paper) => this.addReferencePaper(paper),
+      onRemove: (itemKey) => this.removeReferencePaper(itemKey),
+      onClose: () => this.closeReferencePicker(),
+    });
+    this.referencePickerHandle = handle;
+    this.contextBarElement.appendChild(handle.root);
+    this.referenceBtn?.classList.add(`${config.addonRef}-context-bar-reference-open`);
+
+    const doc = this.contextBarElement.ownerDocument;
+    const listener = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && this.contextBarElement?.contains(target)) return;
+      this.closeReferencePicker();
+    };
+    this.referencePickerDocListener = listener;
+    doc.addEventListener("click", listener, true);
+    handle.focus();
+  }
+
+  private closeReferencePicker(): void {
+    if (this.referencePickerDocListener && this.contextBarElement) {
+      try {
+        this.contextBarElement.ownerDocument.removeEventListener(
+          "click",
+          this.referencePickerDocListener,
+          true,
+        );
+      } catch (_) {}
+      this.referencePickerDocListener = null;
+    }
+    if (this.referencePickerHandle) {
+      try { this.referencePickerHandle.destroy(); } catch (_) {}
+      try { this.referencePickerHandle.root.remove(); } catch (_) {}
+      this.referencePickerHandle = null;
+    }
+    this.referenceBtn?.classList.remove(`${config.addonRef}-context-bar-reference-open`);
+  }
+
+  private addReferencePaper(paper: ReferencePaper): void {
+    const currentKey = this.getCurrentReferencePaperKey();
+    if (currentKey && paper.itemKey === currentKey) return;
+    if (this.referencePapers.some((p) => p.itemKey === paper.itemKey)) return;
+    if (this.referencePapers.length >= MAX_REFERENCE_PAPERS) {
+      showToast(
+        t("reference-max-reached").replace("%N", String(MAX_REFERENCE_PAPERS)),
+        "",
+        1800,
+      );
+      return;
+    }
+    this.referencePapers = [...this.referencePapers, paper];
+    this.saveReferenceState();
+    this.refreshReferenceButton();
+  }
+
+  private removeReferencePaper(itemKey: string): void {
+    const next = this.referencePapers.filter((paper) => paper.itemKey !== itemKey);
+    if (next.length === this.referencePapers.length) return;
+    this.referencePapers = next;
+    this.saveReferenceState();
+    this.refreshReferenceButton();
+  }
+
+  private refreshReferenceButton(): void {
+    const btn = this.referenceBtn;
+    if (!btn) return;
+    const labelEl = btn.querySelector(`.${config.addonRef}-context-bar-label`) as HTMLElement | null;
+    const count = this.referencePapers.length;
+    if (labelEl) {
+      labelEl.textContent = count > 0
+        ? `${t("reference-sidebar-btn")} ${count}`
+        : t("reference-sidebar-btn");
+    }
+    btn.title = count > 0
+      ? t("reference-sidebar-active-tip").replace("%N", String(count))
+      : t("reference-sidebar-tip");
+    btn.classList.toggle(`${config.addonRef}-context-bar-reference-active`, count > 0);
   }
 
   /**
@@ -1136,10 +1311,16 @@ export default class SidebarView {
   private ensureStyles(doc: Document): void {
     injectSharedStyles(doc, config.addonRef, `.${config.addonRef}-panel`);
     const styleId = `${config.addonRef}-sidebar-style`;
-    if (!doc.getElementById(styleId)) {
+    const css = buildSidebarStyles(config.addonRef);
+    const existingStyle = doc.getElementById(styleId) as HTMLStyleElement | null;
+    if (existingStyle) {
+      if (existingStyle.textContent !== css) {
+        existingStyle.textContent = css;
+      }
+    } else {
       const style = createHTMLElement(doc, "style");
       style.id = styleId;
-      style.textContent = buildSidebarStyles(config.addonRef);
+      style.textContent = css;
       doc.documentElement.appendChild(style);
     }
 
@@ -1233,8 +1414,12 @@ export default class SidebarView {
         query: typeof content === "string" ? content : content.filter(p => p.type === "text").map(p => (p as { type: "text"; text: string }).text).join("\n") || t("prompt-describe-image"),
         item: this.currentItem,
         deepRead: false,
+        maxChars: this.referencePapers.length > 0 ? CURRENT_CONTEXT_WITH_REFERENCES_CHARS : undefined,
       });
-      const messagesForRequest = this.buildMessagesForRequest(paperContext);
+      const referenceContexts = await this.buildReferencePaperContexts(
+        typeof content === "string" ? content : content.filter(p => p.type === "text").map(p => (p as { type: "text"; text: string }).text).join("\n"),
+      );
+      const messagesForRequest = this.buildMessagesForRequest(paperContext, referenceContexts);
 
       await llmManager.chat(messagesForRequest, {
         onStart: () => {},
@@ -1405,22 +1590,71 @@ export default class SidebarView {
     return patterns.some((p) => p.test(t));
   }
 
-  private buildMessagesForRequest(paperContext: PaperContextResult): Message[] {
+  private async buildReferencePaperContexts(query: string): Promise<ReferencePaperContext[]> {
+    if (this.referencePapers.length === 0) return [];
+    const contexts: ReferencePaperContext[] = [];
+    for (const paper of this.referencePapers) {
+      try {
+        const item = await getReferencePaperItem(paper);
+        if (!item) continue;
+        const context = await buildCurrentPaperContext({
+          query,
+          item,
+          deepRead: false,
+          maxChars: REFERENCE_CONTEXT_CHARS,
+          maxPages: 120,
+          openReader: false,
+        });
+        if (context.text || context.images.length > 0) {
+          contexts.push({
+            paper,
+            context: { text: context.text, images: [] },
+          });
+        }
+      } catch (e: any) {
+        _log("buildReferencePaperContexts failed: " + (e?.message || e));
+      }
+    }
+    return contexts;
+  }
+
+  private buildMessagesForRequest(
+    paperContext: PaperContextResult,
+    referenceContexts: ReferencePaperContext[] = [],
+  ): Message[] {
     const { text, images } = paperContext;
-    if (!text && images.length === 0) {
+    if (!text && images.length === 0 && referenceContexts.length === 0) {
       return this.messages;
+    }
+
+    const contextBlocks = [
+      "Current paper:",
+      text || "[No current paper text content available]",
+    ];
+    if (referenceContexts.length > 0) {
+      contextBlocks.push(
+        "User-selected comparison papers from Zotero:",
+        referenceContexts.map((refCtx, index) => {
+          const paper = refCtx.paper;
+          return [
+            `Reference paper ${index + 1}: ${paper.title}`,
+            paper.metaLine ? `Metadata: ${paper.metaLine}` : `Zotero item key: ${paper.itemKey}`,
+            refCtx.context.text || "[No readable text content available]",
+          ].join("\n");
+        }).join("\n\n---\n\n"),
+      );
     }
 
     const result: Message[] = [
       {
         role: "system",
         content: [
-          "You are a reading assistant inside Zotero. The full paper text and rendered page images are provided below.",
+          "You are a reading assistant inside Zotero. The active paper and any user-selected comparison papers are provided below.",
           "Use Markdown for prose and LaTeX ($...$ inline, $$...$$ display) for math equations.",
-          "Base your answer on the provided paper content. Cite page numbers when referencing specific claims.",
-          "Analyze both the text excerpts and the page images — images capture original layout, figures, and tables.",
-          "Current paper:",
-          text || "[No text content available]",
+          "Base your answer on the provided Zotero content. Cite page numbers when referencing specific claims.",
+          "When comparing papers, name the source explicitly (Current paper, Reference paper 1, etc.) so claims do not blur together.",
+          "Analyze rendered page images when present; images belong to the current paper unless stated otherwise.",
+          contextBlocks.join("\n\n---\n\n"),
         ].join("\n"),
       },
       ...this.messages,
@@ -1449,11 +1683,25 @@ export default class SidebarView {
   private buildFollowupMessagesForRequest(
     thread: FollowupThread,
     paperContext: PaperContextResult,
+    referenceContexts: ReferencePaperContext[] = [],
   ): Message[] {
     const { text, images } = paperContext;
     const mainContext = this.messages
       .slice(0, Math.max(0, thread.parentMessageIndex + 1))
       .slice(-12);
+    const referenceBlock = referenceContexts.length > 0
+      ? [
+          "User-selected comparison papers from Zotero:",
+          referenceContexts.map((refCtx, index) => {
+            const paper = refCtx.paper;
+            return [
+              `Reference paper ${index + 1}: ${paper.title}`,
+              paper.metaLine ? `Metadata: ${paper.metaLine}` : `Zotero item key: ${paper.itemKey}`,
+              refCtx.context.text || "[No readable text content available]",
+            ].join("\n");
+          }).join("\n\n---\n\n"),
+        ].join("\n\n")
+      : "";
     const result: Message[] = [
       {
         role: "system",
@@ -1464,9 +1712,10 @@ export default class SidebarView {
           "Do not assume the local follow-up should replace or continue the main conversation unless the user explicitly asks.",
           "Current paper:",
           text || "[No text content available]",
+          referenceBlock,
           "Quoted source answer:",
           thread.anchorText || "[No quoted answer available]",
-        ].join("\n"),
+        ].filter(Boolean).join("\n"),
       },
       ...mainContext,
       ...thread.messages,
@@ -1539,8 +1788,10 @@ export default class SidebarView {
         query: userText,
         item: this.currentItem,
         deepRead: false,
+        maxChars: this.referencePapers.length > 0 ? CURRENT_CONTEXT_WITH_REFERENCES_CHARS : undefined,
       });
-      const messagesForRequest = this.buildMessagesForRequest(paperContext);
+      const referenceContexts = await this.buildReferencePaperContexts(userText);
+      const messagesForRequest = this.buildMessagesForRequest(paperContext, referenceContexts);
 
       await llmManager.chat(messagesForRequest, {
         onStart: () => {},
@@ -1626,7 +1877,8 @@ export default class SidebarView {
       let failedDueToImages = false;
       const hadImages = paperContext.images.length > 0;
 
-      const messagesForRequest = this.buildMessagesForRequest(paperContext);
+      const referenceContexts = await this.buildReferencePaperContexts(summaryPrompt);
+      const messagesForRequest = this.buildMessagesForRequest(paperContext, referenceContexts);
 
       await llmManager.chat(messagesForRequest, {
         onStart: () => {},
@@ -1670,7 +1922,7 @@ export default class SidebarView {
       if (failedDueToImages && !completed) {
         this.updateMessageContent(assistantMessageDiv, "Images not supported, retrying with text only\u2026", false);
         paperContext.images = [];
-        const textOnlyMessages = this.buildMessagesForRequest(paperContext);
+        const textOnlyMessages = this.buildMessagesForRequest(paperContext, referenceContexts);
         fullResponse = "";
         completed = false;
 
@@ -2067,9 +2319,11 @@ export default class SidebarView {
         query: userText,
         item: this.currentItem,
         deepRead: false,
+        maxChars: this.referencePapers.length > 0 ? CURRENT_CONTEXT_WITH_REFERENCES_CHARS : undefined,
       });
       const activeThread = this.currentFollowupThread || thread;
-      const messagesForRequest = this.buildFollowupMessagesForRequest(activeThread, paperContext);
+      const referenceContexts = await this.buildReferencePaperContexts(userText);
+      const messagesForRequest = this.buildFollowupMessagesForRequest(activeThread, paperContext, referenceContexts);
 
       await llmManager.chat(messagesForRequest, {
         onStart: () => {},
