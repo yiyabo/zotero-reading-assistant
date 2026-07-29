@@ -63,17 +63,20 @@ async function main() {
   const releaseNotes = `## Zotero Reading Assistant v${version}
 
 ### Installation
-1. Download \`zotero-reading-assistant.xpi\`
-2. In Zotero: Tools → Add-ons → ⚙️ → Install Add-on From File
+1. Download zotero-reading-assistant.xpi
+2. In Zotero: Tools → Add-ons → gear menu → Install Add-on From File
 3. Select the downloaded XPI file
 
 ### Auto-update
-Zotero will automatically check for updates from this release.`;
-
+Zotero will automatically check for updates from this release.
+`;
+  // Write notes to a file so shell never expands backticks/emoji in --notes.
+  const notesPath = path.join(buildDir, "release-notes.md");
+  fs.writeFileSync(notesPath, releaseNotes, "utf-8");
   run(
     `gh release create v${version} ` +
     `--title "v${version}" ` +
-    `--notes "${releaseNotes.replace(/"/g, '\\"')}" ` +
+    `--notes-file "${notesPath}" ` +
     `builds/zotero-reading-assistant.xpi ` +
     `builds/update.json`
   );
