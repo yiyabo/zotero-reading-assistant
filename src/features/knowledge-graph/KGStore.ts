@@ -148,6 +148,12 @@ export type PaperReference = {
   doi?: string;
   matchedItemKey?: string;
   matchConfidence?: number;
+  /**
+   * itemKey of the paper whose references section this entry was
+   * extracted from. Populated by `processOne()` so the UI can show
+   * "this reference came from Paper X".
+   */
+  sourcePaperKey?: string;
 };
 
 export type KGConceptType = "method" | "dataset" | "task" | "concept";

@@ -26,10 +26,12 @@ export function buildSidebarStyles(addonRef: string): string {
         display: flex;
         flex-direction: column;
         flex: 1 1 auto;
+        width: 100%;
         min-height: 0;
         min-width: 0;
         max-width: 100%;
         overflow-x: hidden;
+        overflow-y: hidden;
         box-sizing: border-box;
       }
 
@@ -170,14 +172,13 @@ export function buildSidebarStyles(addonRef: string): string {
         display: flex;
         flex-direction: column;
         /* basis: auto (content) so when the parent is unbounded (multi-section
-           mode) we still get content height; grow:1 + shrink:1 lets us fill the
+           stacked mode), the list sizes to its content. flex-grow fills the
            panel in focus mode and shrink when content overflows. */
         flex: 1 1 auto;
         width: 100%;
         max-width: 100%;
-        inline-size: 100%;
-        max-inline-size: 100%;
         min-width: 0;
+        contain: inline-size;
         min-height: 0;
         gap: 18px;
         /* No max-height: in focus mode flex:1 stretches to fill the panel and
@@ -509,6 +510,7 @@ export function buildSidebarStyles(addonRef: string): string {
         max-inline-size: 100%;
         overflow-x: hidden;
         overflow-wrap: anywhere;
+        word-break: break-word;
         white-space: normal;
         padding: 11px 14px;
         border-radius: 16px;
@@ -518,6 +520,7 @@ export function buildSidebarStyles(addonRef: string): string {
         user-select: text;
         -moz-user-select: text;
         cursor: text;
+        box-sizing: border-box;
       }
 
       .${addonRef}-message.user .${addonRef}-message-content {
@@ -689,18 +692,23 @@ export function buildSidebarStyles(addonRef: string): string {
       /* KG context bar — sits between messages and the input dock */
       .${addonRef}-context-bar {
         position: relative;
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
         flex: 0 0 auto;
-        flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
         margin: 0 0 8px 0;
         align-items: stretch;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
       }
       .${addonRef}-context-bar-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
-        padding: 7px 10px;
+        padding: 7px 8px;
         font-size: 12px;
         font-weight: 600;
         color: var(--ra-text);
@@ -710,6 +718,11 @@ export function buildSidebarStyles(addonRef: string): string {
         cursor: pointer;
         transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease, color 0.15s ease;
         white-space: nowrap;
+        min-width: 0;
+        max-width: 100%;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
       }
       .${addonRef}-context-bar-btn:hover:not(:disabled) {
         background: var(--ra-surface-1);
@@ -729,7 +742,6 @@ export function buildSidebarStyles(addonRef: string): string {
         opacity: 0.6;
       }
       .${addonRef}-context-bar-add {
-        flex: 1 1 auto;
         min-width: 0;
         justify-content: center;
         color: var(--ra-brand-active);
@@ -781,12 +793,15 @@ export function buildSidebarStyles(addonRef: string): string {
         border-color: color-mix(in srgb, var(--ra-brand) 52%, transparent);
       }
       .${addonRef}-context-bar-icon {
+        flex: 0 0 auto;
         font-size: 13px;
         line-height: 1;
         display: inline-flex;
         align-items: center;
       }
       .${addonRef}-context-bar-label {
+        flex: 1 1 auto;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -1912,9 +1927,19 @@ export function buildSidebarStyles(addonRef: string): string {
 
       .katex-display {
         display: block;
+        max-width: 100%;
         overflow-x: auto;
+        overflow-y: hidden;
         margin: 10px 0;
         padding: 6px 0;
+        -webkit-overflow-scrolling: touch;
+      }
+      .katex-display > .katex {
+        max-width: 100%;
+        white-space: normal;
+      }
+      .katex {
+        max-width: 100%;
       }
 
       .${addonRef}-message-content.markdown-body {
@@ -1925,10 +1950,15 @@ export function buildSidebarStyles(addonRef: string): string {
         width: 100%;
         max-width: 100%;
         min-width: 0;
+        overflow-x: hidden;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .${addonRef}-message-content.markdown-body > * {
         max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
       }
 
       .${addonRef}-message-content.markdown-body p {
@@ -2020,7 +2050,9 @@ export function buildSidebarStyles(addonRef: string): string {
         display: block;
         width: 100%;
         max-width: 100%;
-        overflow-x: hidden;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
         margin: 10px 0;
         border-radius: 8px;
         border: 1px solid var(--ra-border);
@@ -2039,6 +2071,7 @@ export function buildSidebarStyles(addonRef: string): string {
       .${addonRef}-message-content.markdown-body table {
         width: 100%;
         min-width: 0;
+        max-width: 100%;
         table-layout: fixed;
         border-collapse: collapse;
         margin: 0;

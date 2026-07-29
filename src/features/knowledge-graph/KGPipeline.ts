@@ -183,6 +183,7 @@ export function startKGPipeline(): void {
     void backfillDomainBuckets(state);
   }
 
+  void backfillSourcePaperKey(state);
   void backfillReferenceMatching(state);
 
   unsubscribe = kgStore.subscribe((s) => scan(s));
@@ -264,6 +265,36 @@ async function backfillReferenceMatching(state: ReturnType<typeof kgStore.getSta
   }
   if (changed > 0) {
     fileLog(`KGPipeline: backfilled reference matching for ${changed} papers`);
+  }
+}
+
+function stampSourcePaperKeys(
+  refs: PaperReference[] | undefined,
+  itemKey: string,
+): PaperReference[] | undefined {
+  if (!refs || refs.length === 0) return refs;
+  return refs.map((r) => (r.sourcePaperKey ? r : { ...r, sourcePaperKey: itemKey }));
+}
+
+async function backfillSourcePaperKey(state: ReturnType<typeof kgStore.getState>): Promise<void> {
+  let changed = 0;
+  for (const p of state.papers) {
+    if (p.status !== "ready" || !p.summary?.references) continue;
+    const missing = p.summary.references.filter((r) => !r.sourcePaperKey);
+    if (missing.length === 0) continue;
+    try {
+      const stamped = stampSourcePaperKeys([...p.summary.references], p.itemKey);
+      if (!stamped) continue;
+      await kgStore.updatePaper(p.itemKey, {
+        summary: { ...p.summary, references: stamped },
+      });
+      changed++;
+    } catch (e: any) {
+      Zotero.debug(`[RA] backfillSourcePaperKey ${p.itemKey} error: ${e?.message || e}`);
+    }
+  }
+  if (changed > 0) {
+    fileLog(`KGPipeline: backfilled sourcePaperKey for ${changed} papers`);
   }
 }
 
@@ -408,6 +439,7 @@ async function processOne(itemKey: string): Promise<void> {
     const response = await runLLMOneShot(messages);
     const summary = parseAnalysisResponse(response);
     summary.references = mergeReferences(summary.references, content.parsedReferences);
+    summary.references = stampSourcePaperKeys(summary.references, itemKey);
     summary.references = await matchReferencesToLibrary(summary.references);
     if (!isUsableSummary(summary)) {
       throw new Error("LLM response was not usable JSON. Try re-adding.");

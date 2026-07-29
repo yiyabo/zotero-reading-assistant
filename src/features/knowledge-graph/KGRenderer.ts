@@ -1226,6 +1226,86 @@ function buildKGStyles(ref: string): string {
     .${ref}-kg-referenced-row-clickable { cursor: pointer; }
     .${ref}-kg-referenced-row-clickable:hover { background: color-mix(in srgb, var(--ra-brand) 8%, transparent); }
 
+    /* All-references list (paper detail panel: full bibliography with source attribution). */
+    .${ref}-kg-all-references-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 360px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .${ref}-kg-all-references-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(241, 245, 249, 0.55);
+      border: 1px solid transparent;
+    }
+    .${ref}-kg-all-references-row:hover {
+      background: color-mix(in srgb, var(--ra-brand) 6%, transparent);
+      border-color: color-mix(in srgb, var(--ra-brand) 20%, transparent);
+    }
+    .${ref}-kg-all-references-head {
+      font-size: var(--ra-fs-sm);
+      color: var(--ra-text);
+      font-weight: var(--ra-fw-medium);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .${ref}-kg-all-references-meta {
+      font-size: 11.5px;
+      color: #64748b;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .${ref}-kg-all-references-footer {
+      display: flex;
+      align-items: center;
+      gap: var(--ra-space-2);
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .${ref}-kg-all-references-source {
+      font-size: 11px;
+      color: #94a3b8;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .${ref}-kg-all-references-action {
+      flex: 0 0 auto;
+      padding: 3px 10px;
+      font-size: 11.5px;
+      font-weight: var(--ra-fw-medium);
+      color: var(--ra-brand-active);
+      background: color-mix(in srgb, var(--ra-brand) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--ra-brand) 25%, transparent);
+      border-radius: var(--ra-radius-pill);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .${ref}-kg-all-references-action:hover {
+      background: color-mix(in srgb, var(--ra-brand) 18%, transparent);
+    }
+    .${ref}-kg-all-references-chip {
+      flex: 0 0 auto;
+      padding: 2px 8px;
+      font-size: 10.5px;
+      font-weight: var(--ra-fw-bold);
+      border-radius: var(--ra-radius-pill);
+      background: rgba(34,197,94,0.16);
+      color: #15803D;
+      cursor: pointer;
+    }
+    .${ref}-kg-all-references-chip:hover {
+      background: rgba(34,197,94,0.28);
+    }
+
     /* Concept detail: clickable pill that focuses source paper node on canvas. */
     .${ref}-kg-detail-rep-paper {
       display: inline-flex;

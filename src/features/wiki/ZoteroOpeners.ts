@@ -53,3 +53,13 @@ export async function openItemInReader(itemID: number): Promise<void> {
     Zotero.debug("[RA] openItemInReader error: " + (e?.message || e));
   }
 }
+
+export async function openItemInReaderByKey(itemKey: string): Promise<void> {
+  try {
+    const libID = (Zotero as any).Libraries?.userLibraryID;
+    const item = await (Zotero.Items as any).getByLibraryAndKeyAsync?.(libID, itemKey);
+    if (item?.id != null) await openItemInReader(item.id);
+  } catch (e: any) {
+    Zotero.debug("[RA] openItemInReaderByKey error: " + (e?.message || e));
+  }
+}

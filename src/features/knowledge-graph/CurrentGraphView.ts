@@ -19,10 +19,10 @@
 import { config } from "../../../package.json";
 import { createHTMLElement, t } from "../../sidebar/domUtils";
 import { openKnowledgeWikiWindow } from "../wiki";
-import { hasPdfAttachment, openItemInReader, openItemInZotero } from "../wiki/ZoteroOpeners";
+import { hasPdfAttachment, openItemByKey, openItemInReader, openItemInReaderByKey, openItemInZotero } from "../wiki/ZoteroOpeners";
 import { buildGraphCanvas, type GraphCanvasHandle, type ViewMode } from "./GraphCanvas";
 import { enqueueRetry } from "./KGPipeline";
-import { kgStore, type KGConceptNode, type KGEdge, type KGEdgeRole, type KGEdgeType, type KGPaperState, type KGState, type ReferencedItem } from "./KGStore";
+import { kgStore, type KGConceptNode, type KGEdge, type KGEdgeRole, type KGEdgeType, type KGPaperState, type KGState, type PaperReference, type ReferencedItem } from "./KGStore";
 
 const CONCEPT_DEGREE_THRESHOLD = 2;
 
@@ -678,6 +678,81 @@ function appendReferencedItemBlock(
   panel.appendChild(block);
 }
 
+function appendAllReferencesBlock(
+  doc: Document,
+  ref: string,
+  panel: HTMLElement,
+  references: PaperReference[] | undefined,
+  state: KGState | undefined,
+  paper: KGPaperState,
+  onSelectPeer?: (itemKey: string) => void,
+): void {
+  if (!references || references.length === 0) return;
+  const block = createHTMLElement(doc, "div", `${ref}-kg-summary-block`);
+  const label = createHTMLElement(doc, "div", `${ref}-kg-summary-label`);
+  label.textContent = `${t("kg-all-references-title")} \u00b7 ${references.length}`;
+  block.appendChild(label);
+
+  const list = createHTMLElement(doc, "div", `${ref}-kg-all-references-list`);
+  for (const r of references) {
+    if (!r) continue;
+    const row = createHTMLElement(doc, "div", `${ref}-kg-all-references-row`);
+    if (r.raw) row.title = r.raw;
+
+    const head = createHTMLElement(doc, "div", `${ref}-kg-all-references-head`);
+    head.textContent = r.title || truncateRefText(r.raw);
+    row.appendChild(head);
+
+    const meta = createHTMLElement(doc, "div", `${ref}-kg-all-references-meta`);
+    const metaParts: string[] = [];
+    if (r.authors) metaParts.push(r.authors);
+    if (r.year) metaParts.push(r.year);
+    if (r.venue) metaParts.push(r.venue);
+    if (r.doi) metaParts.push(`DOI: ${r.doi}`);
+    if (metaParts.length > 0) meta.textContent = metaParts.join(" \u00b7 ");
+    row.appendChild(meta);
+
+    const sourcePaper = r.sourcePaperKey
+      ? state?.papers.find((p) => p.itemKey === r.sourcePaperKey)
+      : paper;
+
+    const footer = createHTMLElement(doc, "div", `${ref}-kg-all-references-footer`);
+    const sourceEl = createHTMLElement(doc, "span", `${ref}-kg-all-references-source`);
+    sourceEl.textContent = `${t("kg-all-references-source")}: ${truncateRefText(sourcePaper?.title || paper.title || "", 80)}`;
+    footer.appendChild(sourceEl);
+
+    const openPdfBtn = createHTMLElement(doc, "button", `${ref}-kg-all-references-action`);
+    openPdfBtn.textContent = t("kg-all-references-open-in-reader");
+    openPdfBtn.addEventListener("click", () => {
+      try {
+        const targetKey = r.matchedItemKey || sourcePaper?.itemKey || paper.itemKey;
+        if (targetKey) openItemInReaderByKey(targetKey);
+      } catch (_) {}
+    });
+    footer.appendChild(openPdfBtn);
+
+    if (r.matchedItemKey) {
+      const libChip = createHTMLElement(doc, "span", `${ref}-kg-all-references-chip`);
+      libChip.textContent = t("kg-all-references-in-library");
+      libChip.title = r.matchedItemKey;
+      libChip.addEventListener("click", () => {
+        try { if (r.matchedItemKey) openItemByKey(r.matchedItemKey); } catch (_) {}
+      });
+      footer.appendChild(libChip);
+    }
+
+    row.appendChild(footer);
+    list.appendChild(row);
+  }
+  block.appendChild(list);
+  panel.appendChild(block);
+}
+
+function truncateRefText(text: string | undefined, max = 220): string {
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max) + "\u2026" : text;
+}
+
 function roleLabel(role: ReferencedItem["role"]): string {
   switch (role) {
     case "extended": return "发展";
@@ -926,6 +1001,7 @@ function buildSummaryPanel(
   appendRaw("本文发布的数据/Benchmark", summary.proposedDatasets);
   appendReferencedItemBlock(doc, ref, panel, "引用方法", summary.referencedMethods, state, onSelectPeer);
   appendReferencedItemBlock(doc, ref, panel, "引用数据集", summary.referencedDatasets, state, onSelectPeer);
+  appendAllReferencesBlock(doc, ref, panel, summary.references, state, paper, onSelectPeer);
   appendRaw("局限", summary.limitations);
   // Legacy v6/v8 fields rendered if present (during migration window).
   append("kg-summary-methods", summary.methods);

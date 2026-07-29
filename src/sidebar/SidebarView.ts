@@ -100,10 +100,79 @@ function createHTMLElement<K extends keyof HTMLElementTagNameMap>(
 }
 
 function constrainInlineSize(element: HTMLElement): void {
-   element.style.minWidth = "0";
-   element.style.maxWidth = "100%";
-   element.style.overflowX = "hidden";
- }
+  element.style.minWidth = "0";
+  element.style.maxWidth = "100%";
+  element.style.width = "100%";
+  element.style.overflowX = "hidden";
+  element.style.boxSizing = "border-box";
+}
+
+/**
+ * Find the width we must stay within. Prefer the nearest ancestor that already
+ * clips overflow (scrollWidth > clientWidth, or overflow-x not visible). Never
+ * trust the section body alone — if content already expanded it, measuring body
+ * locks in the wrong (too wide) size and the pane keeps clipping mid-glyph.
+ */
+function resolvePaneClipWidth(body: HTMLElement): number {
+  const win = body.ownerDocument.defaultView;
+  let el: HTMLElement | null = body;
+  let fallback = 0;
+  for (let i = 0; i < 14 && el; i++) {
+    const cw = el.clientWidth || 0;
+    const sw = el.scrollWidth || 0;
+    if (cw > 40) {
+      fallback = fallback > 0 ? Math.min(fallback, cw) : cw;
+      let ox = "";
+      try {
+        ox = win?.getComputedStyle(el)?.overflowX || "";
+      } catch (_) {}
+      if (sw > cw + 2 || ox === "hidden" || ox === "auto" || ox === "scroll") {
+        return cw;
+      }
+      const cls = String((el as any).className || "");
+      const id = String(el.id || "");
+      if (/item-pane|itemPane|zotero-view|right-pane|pane-content|section-body/i.test(cls + " " + id)) {
+        return cw;
+      }
+    }
+    el = el.parentElement;
+  }
+  return fallback;
+}
+
+/** Soft-constrain a few ancestors so flex min-content width cannot blow the pane. */
+function softenAncestorInlineMins(body: HTMLElement): () => void {
+  const touched: { el: HTMLElement; minWidth: string; maxWidth: string; ox: string }[] = [];
+  let el: HTMLElement | null = body.parentElement;
+  for (let i = 0; i < 5 && el; i++) {
+    const prev = {
+      el,
+      minWidth: el.style.minWidth,
+      maxWidth: el.style.maxWidth,
+      ox: el.style.overflowX,
+    };
+    try {
+      if (!el.style.minWidth) el.style.minWidth = "0";
+      if (!el.style.maxWidth) el.style.maxWidth = "100%";
+      const win = el.ownerDocument.defaultView;
+      const ox = win?.getComputedStyle(el)?.overflowX || "";
+      if (ox === "visible" && !el.style.overflowX) {
+        el.style.overflowX = "clip";
+      }
+      touched.push(prev);
+    } catch (_) {}
+    el = el.parentElement;
+  }
+  return () => {
+    for (const t of touched) {
+      try {
+        t.el.style.minWidth = t.minWidth;
+        t.el.style.maxWidth = t.maxWidth;
+        t.el.style.overflowX = t.ox;
+      } catch (_) {}
+    }
+  };
+}
 
 function t(key: string): string {
   return getString(key);
@@ -374,6 +443,7 @@ export default class SidebarView {
     // Zotero's natural section flow and squash sibling sections (Translate, etc.).
     body.classList.add(`${config.addonRef}-panel-host`);
     this.applyBodyHostStyles(body);
+    constrainInlineSize(body);
 
     this.ensureStyles(doc);
     this.switchConversation(item);
@@ -462,6 +532,7 @@ export default class SidebarView {
     this.renderMessages();
     this.setBusy(this.busy);
     this.updateInputDockMetrics();
+    constrainInlineSize(root);
     this.setupPanelMaxHeight(body, root);
   }
 
@@ -484,6 +555,8 @@ export default class SidebarView {
     const win = body.ownerDocument.defaultView;
     if (!win) return;
 
+    const restoreAncestors = softenAncestorInlineMins(body);
+
     let frame = 0;
     let logged = 0;
     const update = () => {
@@ -501,14 +574,29 @@ export default class SidebarView {
         // which is correct — the panel still ends at viewport bottom.
         const available = Math.max(280, Math.floor(viewportH - rect.top - 8));
         root.style.setProperty("--ra-panel-height", `${available}px`);
-        // Log the first few measurements so we can diagnose sizing issues
-        // without spamming the console on every scroll/resize.
+        // Pin to the nearest clipping ancestor — NOT body.getBoundingClientRect()
+        // (body may already be content-stretched past the visible pane).
+        // Prefer percentage sizing. Only apply a pixel ceiling when we found a
+        // real clipping ancestor narrower than the current laid-out body — this
+        // avoids locking a content-stretched wrong width.
+        const clipW = Math.floor(resolvePaneClipWidth(body));
+        const bodyCW = body.clientWidth || 0;
+        root.style.setProperty("width", "100%", "important");
+        body.style.setProperty("width", "100%", "important");
+        if (clipW > 40 && bodyCW > 0 && clipW < bodyCW - 2) {
+          root.style.setProperty("max-width", `${clipW}px`, "important");
+          body.style.setProperty("max-width", `${clipW}px`, "important");
+        } else {
+          root.style.setProperty("max-width", "100%", "important");
+          body.style.setProperty("max-width", "100%", "important");
+        }
         if (logged < 4) {
           logged++;
           _log(
             `panel-height update#${logged}: rect.top=${rect.top.toFixed(1)}, ` +
-            `viewportH=${viewportH}, available=${available}px, ` +
-            `winInner=${win.innerHeight}, docCH=${body.ownerDocument.documentElement?.clientHeight}`
+            `viewportH=${viewportH}, available=${available}px, clipW=${clipW}, ` +
+            `bodyCW=${body.clientWidth}, bodySW=${body.scrollWidth}, ` +
+            `winInner=${win.innerHeight}`
           );
         }
       } catch (e: any) {
@@ -563,6 +651,7 @@ export default class SidebarView {
       observer?.disconnect();
       win.removeEventListener("resize", schedule);
       win.removeEventListener("scroll", onScroll, true);
+      try { restoreAncestors(); } catch (_) {}
     };
   }
 
@@ -573,13 +662,18 @@ export default class SidebarView {
     //     stacked mode), flex degrades to content-driven sizing.
     //   - We do NOT touch ancestor styles, so sibling sections (Translate, Tags, …)
     //     keep their natural layout.
+    //   - width/overflow-x pin the section body to the item-pane column so
+    //     nowrap buttons and wide markdown tables cannot expand past the pane
+    //     and get clipped by Zotero's outer overflow:hidden.
     body.classList.add(`${config.addonRef}-panel-host`);
     body.style.setProperty("display", "flex", "important");
     body.style.setProperty("flex", "1 1 auto", "important");
     body.style.setProperty("flex-direction", "column", "important");
+    body.style.setProperty("width", "100%", "important");
     body.style.setProperty("min-height", "0", "important");
     body.style.setProperty("min-width", "0", "important");
     body.style.setProperty("max-width", "100%", "important");
+    body.style.setProperty("overflow-x", "hidden", "important");
     body.style.setProperty("padding", "0", "important");
     body.style.setProperty("box-sizing", "border-box", "important");
   }
