@@ -203,3 +203,8 @@ readingassistant-followup-anchor-label = 选中的上下文
 readingassistant-followup-input-placeholder = 输入你的追问问题…
 readingassistant-followup-empty-hint = 输入问题，围绕这条消息继续追问
 readingassistant-send = 发送
+
+readingassistant-ainote-sidebar-btn = AI 便签
+readingassistant-ainote-sidebar-tip = 在当前 PDF 上放置 AI 便签（支持 Markdown，侧栏可用 #编号 引用）
+readingassistant-ainote-place-toast-title = AI 便签
+readingassistant-ainote-place-toast-body = 请切换到 PDF 阅读页，点击页面空白处放置便签。Esc 取消。

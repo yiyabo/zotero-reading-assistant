@@ -109,6 +109,10 @@ export function buildEmptyState(opts: EmptyStateOptions): HTMLElement {
   const tip = createHTMLElement(doc, "p", `${addonRef}-empty-tip`);
   tip.textContent = t("empty-tip");
 
+  // No AI-note card here on purpose: the context bar already carries an
+  // "AI 便签" button with this exact label, and multi-line content inside a
+  // <button> does not grow the button box in Gecko — the card's description
+  // spilled out of its own border and collided with the tip below.
   empty.append(logoWrap, title, desc, suggestionsLabel, suggestions, tip);
   return empty;
 }

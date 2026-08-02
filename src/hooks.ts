@@ -12,6 +12,7 @@ import {
   shutdownKnowledgeWiki,
 } from "./features/wiki";
 import { initFollowup } from "./features/followup";
+import { initAINotes, shutdownAINotes } from "./features/ai-notes";
 import { resetLLMManager } from "./modules/llm/LLMManager";
 import { initLocale } from "./modules/utils/locale";
 import { PrefKeys } from "./modules/utils/prefs";
@@ -90,6 +91,7 @@ async function onStartup() {
   initKnowledgeGraph();
   initKnowledgeWiki();
   initFollowup();
+  initAINotes();
 }
 
 async function onMainWindowLoad(win: Window) {
@@ -126,6 +128,7 @@ function onShutdown(): void {
   unregisterPreferenceObservers();
   try { shutdownKnowledgeGraph(); } catch (_) {}
   try { shutdownKnowledgeWiki(); } catch (_) {}
+  try { shutdownAINotes(); } catch (_) {}
 
   if (addon.data.preferencePaneID && (Zotero as any).PreferencePanes?.unregister) {
     try {

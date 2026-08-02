@@ -329,11 +329,18 @@ export function buildSidebarStyles(addonRef: string): string {
         text-align: left;
       }
 
+      /* grid + explicit auto height, same workaround as -reference-result:
+         a <button> in Gecko vertically centres its anonymous content box and
+         does not grow to fit wrapped children, so with display:flex the
+         two-line title/description spilled outside the card's own border. */
       .${addonRef}-empty-setup-card {
-        display: flex;
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
-        gap: 12px;
+        column-gap: 12px;
         width: 100%;
+        height: auto !important;
+        box-sizing: border-box;
         margin: 4px 0 0;
         padding: 14px 16px;
         border: none;
@@ -343,6 +350,7 @@ export function buildSidebarStyles(addonRef: string): string {
         cursor: pointer;
         text-align: left;
         font-family: inherit;
+        white-space: normal;
         box-shadow: var(--ra-shadow-md);
         transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
       }
@@ -791,6 +799,15 @@ export function buildSidebarStyles(addonRef: string): string {
       .${addonRef}-context-bar-open:hover:not(:disabled) {
         background: var(--ra-surface-1);
         border-color: color-mix(in srgb, var(--ra-brand) 52%, transparent);
+      }
+      .${addonRef}-context-bar-ainote {
+        color: var(--ra-brand-active);
+        background: color-mix(in srgb, var(--ra-brand) 8%, var(--ra-surface));
+        border-color: color-mix(in srgb, var(--ra-brand) 36%, transparent);
+      }
+      .${addonRef}-context-bar-ainote:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--ra-brand) 14%, var(--ra-surface));
+        border-color: color-mix(in srgb, var(--ra-brand) 55%, transparent);
       }
       .${addonRef}-context-bar-icon {
         flex: 0 0 auto;

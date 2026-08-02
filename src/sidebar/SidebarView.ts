@@ -3,6 +3,10 @@ import { kgStore } from "../features/knowledge-graph/KGStore";
 import { openKnowledgeGraphWindow } from "../features/knowledge-graph";
 import { openKnowledgeWikiWindow } from "../features/wiki";
 import { openFollowupWindow, FollowupWindowContext } from "../features/followup/FollowupWindow";
+import {
+  beginAINotePlaceMode,
+  buildAINotesContext,
+} from "../features/ai-notes";
 import { getLLMManager } from "../modules/llm/LLMManager";
 import { Message, MessageContentPart } from "../modules/llm/types";
 import { getString } from "../modules/utils/locale";
@@ -48,6 +52,8 @@ import {
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const FOLLOWUP_SIZE_PREF = `${config.addonRef}.followupWindowSize`;
 const FOLLOWUP_MIN_WIDTH = 320;
+/** Bump when sidebar chrome gains controls that old preserved DOM would miss. */
+const SIDEBAR_UI_REV = "ainote-v1";
 const FOLLOWUP_MIN_HEIGHT = 320;
 const FOLLOWUP_EDGE_GAP = 12;
 const MAX_REFERENCE_PAPERS = 3;
@@ -454,9 +460,11 @@ export default class SidebarView {
     );
     // Older panels (built before the multi-conversation feature) lack the
     // conversation bar; force a rebuild so we don't show a stale panel
-    // without the new switcher.
+    // without the new switcher. SIDEBAR_UI_REV catches feature chrome added later
+    // (e.g. AI note button) even when Zotero preserves the section body DOM.
     const missingConvBar = !!root && !root.querySelector(`#${config.addonRef}-conversation-bar`);
-    if (!root || hasLegacyTools || missingConvBar) {
+    const staleUiRev = !!root && root.getAttribute("data-ra-ui-rev") !== SIDEBAR_UI_REV;
+    if (!root || hasLegacyTools || missingConvBar || staleUiRev) {
       root = this.buildPanel(doc);
       body.replaceChildren(root);
     }
@@ -782,6 +790,7 @@ export default class SidebarView {
   private buildPanel(doc: Document): HTMLDivElement {
     const root = createHTMLElement(doc, "div", `${config.addonRef}-panel`);
     root.id = `${config.addonRef}-panel`;
+    root.setAttribute("data-ra-ui-rev", SIDEBAR_UI_REV);
 
     const messages = createHTMLElement(doc, "div", `${config.addonRef}-messages`);
     messages.id = `${config.addonRef}-messages`;
@@ -1216,7 +1225,22 @@ export default class SidebarView {
       }
     });
 
-    bar.append(referenceBtn, addBtn, wikiBtn, openBtn);
+    const noteBtn = createHTMLElement(doc, "button", `${config.addonRef}-context-bar-btn`);
+    noteBtn.type = "button";
+    noteBtn.classList.add(`${config.addonRef}-context-bar-ainote`);
+    noteBtn.innerHTML = `<span class="${config.addonRef}-context-bar-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><path d="M15 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></span><span class="${config.addonRef}-context-bar-label">${t("ainote-sidebar-btn")}</span>`;
+    noteBtn.title = t("ainote-sidebar-tip");
+    noteBtn.addEventListener("click", () => {
+      try {
+        const pdfId = this.resolveCurrentPdfItemID();
+        beginAINotePlaceMode(pdfId || undefined);
+        showToast(t("ainote-place-toast-title"), t("ainote-place-toast-body"), 3500);
+      } catch (e: any) {
+        _log("beginAINotePlaceMode failed: " + (e?.message || e));
+      }
+    });
+
+    bar.append(referenceBtn, addBtn, wikiBtn, openBtn, noteBtn);
 
     this.contextBarElement = bar;
     this.referenceBtn = referenceBtn;
@@ -1347,6 +1371,65 @@ export default class SidebarView {
       if (isStandalonePdf(item)) return item;
     } catch (_) {}
     return null;
+  }
+
+  private resolveCurrentPdfItemID(): number | null {
+    try {
+      const item = this.currentItem as any;
+      if (!item) return null;
+      if (typeof item.isPDFAttachment === "function" && item.isPDFAttachment()) return item.id;
+      const ct = String(item.attachmentContentType || "");
+      if (ct === "application/pdf") return item.id;
+      if (typeof item.getAttachments === "function") {
+        const ids: number[] = item.getAttachments() || [];
+        for (const id of ids) {
+          const att = Zotero.Items.get(id) as any;
+          if (!att) continue;
+          if (typeof att.isPDFAttachment === "function" && att.isPDFAttachment()) return att.id;
+          if (String(att.attachmentContentType || "") === "application/pdf") return att.id;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  private resolveCurrentAttachmentKeys(): { attachmentKey: string; parentItemKey: string } | null {
+    try {
+      const pdfId = this.resolveCurrentPdfItemID();
+      if (!pdfId) return null;
+      const att = Zotero.Items.get(pdfId) as any;
+      if (!att?.key) return null;
+      let parentItemKey = String(att.key);
+      if (att.parentItemKey) parentItemKey = String(att.parentItemKey);
+      else if (att.parentID) {
+        const parent = Zotero.Items.get(att.parentID) as any;
+        if (parent?.key) parentItemKey = String(parent.key);
+      }
+      return { attachmentKey: String(att.key), parentItemKey };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  private buildAINotesContextBlock(): string {
+    const keys = this.resolveCurrentAttachmentKeys();
+    if (!keys) return "";
+    const lastUser = [...this.messages].reverse().find((m) => m.role === "user");
+    let userText = "";
+    if (lastUser) {
+      if (typeof lastUser.content === "string") userText = lastUser.content;
+      else if (Array.isArray(lastUser.content)) {
+        userText = lastUser.content
+          .filter((p): p is { type: "text"; text: string } => p.type === "text")
+          .map((p) => p.text)
+          .join("\n");
+      }
+    }
+    return buildAINotesContext({
+      attachmentKey: keys.attachmentKey,
+      parentItemKey: keys.parentItemKey,
+      userText,
+    });
   }
 
   /** Refresh the add-to-KG button label/disabled state from the current item. */
@@ -1738,6 +1821,8 @@ export default class SidebarView {
         }).join("\n\n---\n\n"),
       );
     }
+    const aiNotesBlock = this.buildAINotesContextBlock();
+    if (aiNotesBlock) contextBlocks.push(aiNotesBlock);
 
     const result: Message[] = [
       {
@@ -1748,6 +1833,7 @@ export default class SidebarView {
           "Base your answer on the provided Zotero content. Cite page numbers when referencing specific claims.",
           "When comparing papers, name the source explicitly (Current paper, Reference paper 1, etc.) so claims do not blur together.",
           "Analyze rendered page images when present; images belong to the current paper unless stated otherwise.",
+          "The user may place numbered AI sticky notes on the PDF (e.g. #1, #2). When those notes are provided below, treat them as high-priority user annotations and cite them by number.",
           contextBlocks.join("\n\n---\n\n"),
         ].join("\n"),
       },
@@ -1807,6 +1893,7 @@ export default class SidebarView {
           "Current paper:",
           text || "[No text content available]",
           referenceBlock,
+          this.buildAINotesContextBlock(),
           "Quoted source answer:",
           thread.anchorText || "[No quoted answer available]",
         ].filter(Boolean).join("\n"),

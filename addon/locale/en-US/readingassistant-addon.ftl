@@ -203,3 +203,8 @@ readingassistant-followup-anchor-label = Selected Context
 readingassistant-followup-input-placeholder = Type your follow-up question…
 readingassistant-followup-empty-hint = Ask a follow-up question about this message
 readingassistant-send = Send
+
+readingassistant-ainote-sidebar-btn = AI Notes
+readingassistant-ainote-sidebar-tip = Place an AI sticky note on the PDF (Markdown; cite as #1 in chat)
+readingassistant-ainote-place-toast-title = AI Notes
+readingassistant-ainote-place-toast-body = Switch to the PDF reader and click on the page to place a note. Press Esc to cancel.
