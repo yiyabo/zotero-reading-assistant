@@ -803,6 +803,23 @@ export class AINotesOverlay {
       ta?.setSelectionRange(len, len);
     } catch (_) {}
 
+    // Zotero's reader exempts text inputs from its global keyboard shortcuts,
+    // but both escape hatches predate <textarea> and miss it (reader.js):
+    //
+    //   FocusManager._handleKeyDown — window capture
+    //     !e.target.closest('[contenteditable], input[type="text"], .preview-popup')
+    //     -> all four arrows were preventDefault()ed into focus navigation.
+    //   KeyboardManager._handleKeyDown — window capture, via isTextBox()
+    //     nodeName === 'INPUT' && type === 'text' || getAttribute('contenteditable') === 'true'
+    //     -> Mod-A was preventDefault()ed into "select all annotations".
+    //
+    // Both are registered at reader init, i.e. before us on the same node and
+    // phase, so no amount of stopPropagation on our side can out-order them.
+    // `[contenteditable]` is an attribute-*presence* selector, so the inert
+    // value "false" is enough to satisfy FocusManager without making anything
+    // editable; isTextBox insists on "true", so we perform Mod-A ourselves.
+    if (ta) ta.setAttribute("contenteditable", "false");
+
     // MUST be registered before trapKey below: trapKey calls
     // stopImmediatePropagation(), which swallows every listener added after it
     // on this same node — including the keyup we need for Shift+Arrow selection.
@@ -811,6 +828,14 @@ export class AINotesOverlay {
       for (const type of ["keyup", "mouseup", "select", "input", "focus", "click"]) {
         ta.addEventListener(type, syncSelection);
       }
+      ta.addEventListener("keydown", (ev: KeyboardEvent) => {
+        if (ev.key !== "a" && ev.key !== "A") return;
+        if (!(ev.metaKey || ev.ctrlKey) || ev.altKey || ev.shiftKey) return;
+        // Zotero already cancelled the native select-all before we got here.
+        ev.preventDefault();
+        try { ta.select(); } catch (_) {}
+        syncSelection();
+      });
       syncSelection();
     }
 
