@@ -272,11 +272,19 @@ export function buildSidebarStyles(addonRef: string): string {
         text-align: left;
       }
 
+      /* grid + auto height for the same reason as -empty-setup-card: a Gecko
+         <button> centres its anonymous content box and will not grow for
+         wrapped text, so a long suggestion overflowed its own border once the
+         sidebar got narrow enough to wrap. */
       .${addonRef}-empty-suggestion {
-        display: flex;
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr);
         align-items: center;
-        gap: 10px;
+        column-gap: 10px;
         width: 100%;
+        height: auto !important;
+        box-sizing: border-box;
+        white-space: normal;
         padding: 9px 12px;
         border: 1px solid color-mix(in srgb, var(--ra-secondary) 22%, transparent);
         border-radius: 10px;
@@ -2318,10 +2326,10 @@ export function buildSidebarStyles(addonRef: string): string {
         font-size: 11px;
         font-family: inherit;
         max-width: 100%;
-        white-space: normal;
-        overflow-wrap: anywhere;
         cursor: pointer;
         transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+        /* The label is a short fixed string; keep it on one line. A stray
+           white-space:normal used to sit above this and was dead code. */
         white-space: nowrap;
       }
 

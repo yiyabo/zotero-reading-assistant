@@ -180,15 +180,26 @@ function cssBoxToPdfRect(pageView: any, left: number, top: number, width: number
   return [x1, y1, x2, y2];
 }
 
+/** ~17 KB and constant per build — never rebuild the string. */
+let overlayCssCache: string | null = null;
+/** Documents whose <style> we already filled, scoped to this module instance. */
+const styledDocs = new WeakSet<Document>();
+
 function ensureStyle(doc: Document): void {
-  let style = doc.getElementById(STYLE_ID) as HTMLStyleElement | null;
-  if (!style) {
-    style = doc.createElement("style");
+  const existing = doc.getElementById(STYLE_ID) as HTMLStyleElement | null;
+  // Assigning textContent forces a full stylesheet re-parse plus a document
+  // restyle, and renderReader runs on a 1.2s poll — only write once per
+  // document. A plugin reload builds a fresh WeakSet, so the CSS still
+  // refreshes without a Zotero restart.
+  if (existing && styledDocs.has(doc)) return;
+  if (overlayCssCache === null) overlayCssCache = buildOverlayCss(PREFIX);
+  const style = existing || doc.createElement("style");
+  if (!existing) {
     style.id = STYLE_ID;
     (doc.head || doc.documentElement).appendChild(style);
   }
-  // Always refresh so CSS edits apply without full reader reload.
-  style.textContent = buildOverlayCss(PREFIX);
+  style.textContent = overlayCssCache;
+  styledDocs.add(doc);
 }
 
 function ensurePageRoot(pageDiv: HTMLElement, pageIndex: number): HTMLElement {
@@ -285,11 +296,9 @@ export class AINotesOverlay {
       if (!itemID) continue;
       live.add(itemID);
       if (!this.bindings.has(itemID)) this.bindReader(reader);
-      else {
-        const b = this.bindings.get(itemID)!;
-        this.removeBrokenToolbarChips(b);
-        this.renderReader(b);
-      }
+      // Legacy chip cleanup deliberately runs only at bind time — see
+      // removeBrokenToolbarChips. This tick must stay cheap.
+      else this.renderReader(this.bindings.get(itemID)!);
     }
     for (const [id, b] of this.bindings) {
       if (!live.has(id)) {
@@ -411,9 +420,16 @@ export class AINotesOverlay {
       }
       const wins = [...getPdfViewWindows(reader), getReaderChromeWindow(reader)];
       for (const w of wins) {
+        const wdoc = w?.document;
+        if (!wdoc) continue;
+        // Must run before the nodes go away: beginPlaceMode() calls cleanup()
+        // and then rebinds, so without this every placement leaked another
+        // round of window-level pointer listeners.
+        this.unbindNotesIn(wdoc);
         try {
-          w?.document
-            ?.querySelectorAll?.(
+          styledDocs.delete(wdoc);
+          wdoc
+            .querySelectorAll?.(
               `.${PREFIX}-root, .${PREFIX}-place-banner, .${PREFIX}-fixed-editor, #${STYLE_ID}, #${PREFIX}-toolbar-btn, #${PREFIX}-toolbar-host, .${PREFIX}-toolbar-btn, .${PREFIX}-toolbar-host`,
             )
             .forEach((el: Element) => el.remove());
@@ -438,6 +454,11 @@ export class AINotesOverlay {
     if (binding.placeMode) this.showPlaceBanner(binding, true);
   }
 
+  /**
+   * One-shot cleanup for the reader-toolbar chip an earlier version injected.
+   * Nothing creates those nodes any more, so this only has to sweep leftovers
+   * from a hot plugin reload — call it at bind time, never from the poll.
+   */
   private removeBrokenToolbarChips(binding: ReaderBinding): void {
     const wins = [
       ...getPdfViewWindows(binding.reader),
@@ -451,27 +472,6 @@ export class AINotesOverlay {
             `#${PREFIX}-toolbar-btn, #${PREFIX}-toolbar-host, .${PREFIX}-toolbar-btn, .${PREFIX}-toolbar-host, [id*="ainote-toolbar"], [class*="ainote-toolbar"]`,
           )
           .forEach((el: Element) => el.remove());
-      } catch (_) {}
-      try {
-        const candidates = win.document.querySelectorAll("button, span, div, a, toolbarbutton, label");
-        for (let i = 0; i < candidates.length; i++) {
-          const el = candidates[i] as HTMLElement;
-          if (el.closest?.(`.${PREFIX}-note, .${PREFIX}-place-banner, .${PREFIX}-fixed-editor, .${PREFIX}-root`)) {
-            continue;
-          }
-          const txt = (el.textContent || "").replace(/\s+/g, "");
-          if (
-            txt !== "AI便签" &&
-            txt !== "+便签" &&
-            txt !== "+AI便签" &&
-            txt !== "放置中…" &&
-            txt !== "AI便签×" &&
-            !/^AI便签\d*$/.test(txt)
-          ) {
-            continue;
-          }
-          try { el.remove(); } catch (_) {}
-        }
       } catch (_) {}
     }
   }
@@ -541,15 +541,34 @@ export class AINotesOverlay {
       this.removeFixedEditor(binding);
     }
 
+    // Group once instead of filtering the note list per page: this runs on a
+    // 1.2s poll and a long PDF has hundreds of pages, nearly all of them empty.
+    const byPage = new Map<number, AINote[]>();
+    for (const note of notes) {
+      const bucket = byPage.get(note.pageIndex);
+      if (bucket) bucket.push(note);
+      else byPage.set(note.pageIndex, [note]);
+    }
+
     for (let i = 0; i < pages.length; i++) {
       const pageView = pages[i];
       const pageDiv = pageView?.div as HTMLElement | undefined;
       if (!pageDiv) continue;
-      try {
-        pageDiv.style.overflow = "visible";
-      } catch (_) {}
-      const root = ensurePageRoot(pageDiv, i);
-      const pageNotes = notes.filter((n) => n.pageIndex === i);
+      const pageNotes = byPage.get(i);
+      const existingRoot = pageDiv.querySelector(`#${PREFIX}-root-${i}`) as HTMLElement | null;
+
+      if (!pageNotes || !pageNotes.length) {
+        // Nothing on this page — tear the container down instead of paying to
+        // keep an empty overlay on every page of the document.
+        if (existingRoot) {
+          this.unbindNotesIn(existingRoot);
+          existingRoot.remove();
+        }
+        continue;
+      }
+
+      if (pageDiv.style.overflow !== "visible") pageDiv.style.overflow = "visible";
+      const root = existingRoot || ensurePageRoot(pageDiv, i);
       const keep = new Set(pageNotes.map((n) => n.id));
       root.querySelectorAll(`.${PREFIX}-note`).forEach((el: Element) => {
         const id = (el as HTMLElement).dataset.noteId || "";
@@ -564,6 +583,15 @@ export class AINotesOverlay {
     }
 
     if (!binding.editingId) this.removeFixedEditor(binding);
+  }
+
+  /** Release the window-level drag listeners held by every note under `root`. */
+  private unbindNotesIn(root: ParentNode): void {
+    try {
+      root.querySelectorAll(`.${PREFIX}-note`).forEach((el: Element) => {
+        try { (el as any).__raUnbind?.(); } catch (_) {}
+      });
+    } catch (_) {}
   }
 
   private renderNote(binding: ReaderBinding, pageView: any, root: HTMLElement, note: AINote): void {
