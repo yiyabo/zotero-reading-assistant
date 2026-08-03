@@ -16,42 +16,139 @@
  * and re-invokes the builder when state changes.
  */
 import { createHTMLElement, t } from "./domUtils";
+import { fileLog } from "../utils/fileLog";
 
-const SVG_ATTRS =
-  'viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
-  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/** One SVG child: element name plus its attributes. */
+type Shape = [string, Record<string, string>];
+
+/** Shorthand for the overwhelmingly common `<path d="...">` case. */
+function p(d: string): Shape {
+  return ["path", { d }];
+}
+
+/**
+ * Build an icon as real DOM instead of an `innerHTML` markup string.
+ *
+ * Zotero's window is XHTML (`application/xhtml+xml`), so `innerHTML` is handled
+ * by the **XML** fragment parser, not the HTML one. That parser is strict in two
+ * ways that both bit this file:
+ *
+ *   - It has no foreign-content rule, so an `<svg>` without an explicit `xmlns`
+ *     inherits the surrounding XHTML namespace and silently renders nothing.
+ *   - Any malformed fragment — a duplicate attribute, for instance — is a
+ *     *fatal* error, so the setter throws where HTML would quietly recover.
+ *     An uncaught throw escaped `buildEmptyState()` before it appended anything,
+ *     turning one bad glyph into a completely blank sidebar.
+ *
+ * `createElementNS` sidesteps the parser entirely: the namespace is passed
+ * explicitly and attributes are set one at a time, so neither failure mode is
+ * expressible. This matches how `InputDock.ts` builds the send icon.
+ */
+function buildIcon(
+  doc: Document,
+  size: number,
+  strokeWidth: number,
+  shapes: Shape[],
+): Element {
+  const svg = doc.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", String(strokeWidth));
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  for (const shape of shapes) {
+    const child = doc.createElementNS(SVG_NS, shape[0]);
+    const attrs = shape[1];
+    for (const key of Object.keys(attrs)) {
+      child.setAttribute(key, attrs[key]);
+    }
+    svg.appendChild(child);
+  }
+  return svg;
+}
 
 /**
  * One stroke icon per suggestion, drawn on the same 24-unit grid so every row
  * lines up. Emoji were inconsistent in size, weight and colour across
  * platforms, which is what made the list look misaligned.
  */
-const SUGGESTION_ICONS: Record<string, string> = {
+const SUGGESTION_ICONS: Record<string, Shape[]> = {
   // summary: document with lines
-  "empty-suggestion-summary":
-    '<path d="M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
+  "empty-suggestion-summary": [
+    p("M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"),
+    p("M14 3v6h6"),
+    p("M8 13h8"),
+    p("M8 17h5"),
+  ],
   // method: flask
-  "empty-suggestion-method":
-    '<path d="M9 3h6"/><path d="M10 3v5.5L5.5 17A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-4L14 8.5V3"/><path d="M7 15h10"/>',
+  "empty-suggestion-method": [
+    p("M9 3h6"),
+    p("M10 3v5.5L5.5 17A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-4L14 8.5V3"),
+    p("M7 15h10"),
+  ],
   // results: bar chart
-  "empty-suggestion-results":
-    '<path d="M4 20h16"/><path d="M7 20v-6"/><path d="M12 20V6"/><path d="M17 20v-9"/>',
+  "empty-suggestion-results": [
+    p("M4 20h16"),
+    p("M7 20v-6"),
+    p("M12 20V6"),
+    p("M17 20v-9"),
+  ],
   // limitations: magnifier over a gap
-  "empty-suggestion-limitations":
-    '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/><path d="M11 8.5v3"/><path d="M11 14h.01"/>',
+  "empty-suggestion-limitations": [
+    ["circle", { cx: "11", cy: "11", r: "6" }],
+    p("M20 20l-4.5-4.5"),
+    p("M11 8.5v3"),
+    p("M11 14h.01"),
+  ],
 };
 
-const LOGO_MARK =
-  '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" ' +
-  'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>' +
-  '<path d="M13.5 4v5.5H19"/>' +
-  '<path d="M9.4 12.1l.75 1.85 1.85.75-1.85.75-.75 1.85-.75-1.85L6.8 14.7l1.85-.75z"/>' +
-  '<path d="M14.6 16.2l.45 1.1 1.1.45-1.1.45-.45 1.1-.45-1.1-1.1-.45 1.1-.45z"/>' +
-  "</svg>";
+const LOGO_SHAPES: Shape[] = [
+  p("M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"),
+  p("M13.5 4v5.5H19"),
+  p("M9.4 12.1l.75 1.85 1.85.75-1.85.75-.75 1.85-.75-1.85L6.8 14.7l1.85-.75z"),
+  p("M14.6 16.2l.45 1.1 1.1.45-1.1.45-.45 1.1-.45-1.1-1.1-.45 1.1-.45z"),
+];
 
-const CHEVRON =
-  `<svg ${SVG_ATTRS} stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>`;
+const CHEVRON_SHAPES: Shape[] = [p("M9 6l6 6-6 6")];
+
+/**
+ * Build a clickable card as a `<div role="button">` rather than a `<button>`.
+ *
+ * A Gecko `<button>` lays its children out inside an anonymous content box that
+ * it vertically centres and that does **not** grow for wrapped children, so any
+ * multi-line label spills outside the card's own border. That quirk already
+ * forced `.empty-setup-card` onto a `grid !important; height: auto !important`
+ * workaround and killed an earlier AI-note card outright. A plain div has none
+ * of it: grid/flex behave normally and the box grows, which the longer English
+ * suggestion strings need in order to wrap instead of being ellipsised away.
+ *
+ * Keyboard parity with a real button is restored explicitly: `tabindex="0"` for
+ * Tab reachability plus Enter/Space activation. `preventDefault()` on Space
+ * stops the panel from scrolling instead of activating the card.
+ */
+function createCardButton(
+  doc: Document,
+  className: string,
+  onActivate: () => void,
+): HTMLElement {
+  const el = createHTMLElement(doc, "div", className);
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.addEventListener("click", () => onActivate());
+  el.addEventListener("keydown", (ev: KeyboardEvent) => {
+    if (ev.key === "Enter" || ev.key === " " || ev.key === "Spacebar") {
+      ev.preventDefault();
+      onActivate();
+    }
+  });
+  return el;
+}
 
 export type EmptyStateOptions = {
   /** Owning document — must be the chrome document the empty state will live in. */
@@ -72,18 +169,43 @@ export type EmptyStateOptions = {
  * Returns the outer `<div>` ready to be appended into the messages container.
  * The caller controls when to (re-)render — e.g. on item change or after the
  * SECRET_KEY preference is updated.
+ *
+ * `renderMessages()` calls this inline as
+ * `container.appendChild(buildEmptyState(...))`, so anything thrown in here
+ * means `appendChild` never runs and the user gets a totally blank panel with no
+ * clue why. The wrapper below converts that into a readable heading plus a
+ * stack trace in /tmp/ra-bootstrap.log.
  */
 export function buildEmptyState(opts: EmptyStateOptions): HTMLElement {
+  try {
+    return buildEmptyStateInner(opts);
+  } catch (e: any) {
+    fileLog(
+      "buildEmptyState FAILED: " + (e?.message || e) + "\n" + (e?.stack || "(no stack)"),
+    );
+    const fallback = createHTMLElement(opts.doc, "div", `${opts.addonRef}-empty`);
+    const heading = createHTMLElement(opts.doc, "h3", `${opts.addonRef}-empty-title`);
+    try {
+      heading.textContent = t("empty-title");
+    } catch (_) {
+      heading.textContent = "AI Reading Assistant";
+    }
+    fallback.appendChild(heading);
+    return fallback;
+  }
+}
+
+function buildEmptyStateInner(opts: EmptyStateOptions): HTMLElement {
   const { doc, addonRef, hasApiKey, onSuggestionClick, onSetupClick } = opts;
 
   const empty = createHTMLElement(doc, "div", `${addonRef}-empty`);
 
-  // Inline SVG on a gradient chip rather than an <img> or an emoji: no
-  // scaling/aspect-ratio issues, and it renders identically on every platform.
+  // SVG on a gradient chip rather than an <img> or an emoji: no scaling or
+  // aspect-ratio issues, and it renders identically on every platform.
   const logoWrap = createHTMLElement(doc, "div", `${addonRef}-empty-logo`);
   logoWrap.setAttribute("aria-hidden", "true");
   const logoMark = createHTMLElement(doc, "span", `${addonRef}-empty-logo-mark`);
-  logoMark.innerHTML = LOGO_MARK;
+  logoMark.appendChild(buildIcon(doc, 26, 1.9, LOGO_SHAPES));
   logoWrap.appendChild(logoMark);
 
   const title = createHTMLElement(doc, "h3", `${addonRef}-empty-title`);
@@ -132,16 +254,17 @@ export function buildEmptyState(opts: EmptyStateOptions): HTMLElement {
     "empty-suggestion-limitations",
   ];
   for (const key of keys) {
-    const card = createHTMLElement(doc, "button", `${addonRef}-empty-suggestion`);
-    card.type = "button";
+    const label = t(key);
+    const card = createCardButton(doc, `${addonRef}-empty-suggestion`, () =>
+      onSuggestionClick(label),
+    );
     const iconSpan = createHTMLElement(doc, "span", `${addonRef}-empty-suggestion-icon`);
-    iconSpan.innerHTML = `<svg ${SVG_ATTRS}>${SUGGESTION_ICONS[key] || ""}</svg>`;
+    iconSpan.appendChild(buildIcon(doc, 14, 2, SUGGESTION_ICONS[key] || []));
     const textSpan = createHTMLElement(doc, "span", `${addonRef}-empty-suggestion-text`);
-    textSpan.textContent = t(key);
+    textSpan.textContent = label;
     const goSpan = createHTMLElement(doc, "span", `${addonRef}-empty-suggestion-go`);
-    goSpan.innerHTML = CHEVRON;
+    goSpan.appendChild(buildIcon(doc, 14, 2.4, CHEVRON_SHAPES));
     card.append(iconSpan, textSpan, goSpan);
-    card.addEventListener("click", () => onSuggestionClick(textSpan.textContent || ""));
     suggestions.appendChild(card);
   }
 

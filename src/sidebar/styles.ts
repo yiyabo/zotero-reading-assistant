@@ -243,14 +243,14 @@ export function buildSidebarStyles(addonRef: string): string {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 50px;
-        height: 50px;
-        border-radius: 15px;
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
         background: var(--ra-gradient);
         color: #fff;
         box-shadow:
-          0 10px 24px color-mix(in srgb, var(--ra-brand) 30%, transparent),
-          inset 0 1px 0 rgba(255, 255, 255, 0.28);
+          0 6px 16px color-mix(in srgb, var(--ra-brand) 24%, transparent),
+          inset 0 1px 0 rgba(255, 255, 255, 0.26);
       }
       .${addonRef}-empty-logo-mark svg { display: block; }
 
@@ -263,31 +263,24 @@ export function buildSidebarStyles(addonRef: string): string {
       }
 
       .${addonRef}-empty-desc {
-        margin: 0 auto 18px;
-        max-width: 30ch;
+        margin: 0 auto 20px;
+        max-width: 34ch;
         font-size: 12px;
         line-height: 1.6;
       }
 
-      /* Hairlines either side turn the label into a section divider so the
-         card list reads as a distinct group rather than more stacked text. */
+      /* Left-aligned on the cards' own left edge, so the centred hero block
+         above and the list below read as two deliberate sections instead of
+         six stacked centred bands. No text-transform: uppercase — it is a
+         no-op on the Chinese string and shouts in English. */
       .${addonRef}-empty-suggestions-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 0 0 10px;
-        font-size: 10.5px;
-        font-weight: 650;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        color: color-mix(in srgb, var(--ra-text-muted) 80%, transparent);
-      }
-      .${addonRef}-empty-suggestions-label::before,
-      .${addonRef}-empty-suggestions-label::after {
-        content: "";
-        flex: 1 1 auto;
-        height: 1px;
-        background: color-mix(in srgb, var(--ra-text-muted) 22%, transparent);
+        margin: 0 0 8px;
+        padding-left: 2px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        text-align: left;
+        color: color-mix(in srgb, var(--ra-text-muted) 85%, transparent);
       }
 
       .${addonRef}-empty-suggestions {
@@ -298,39 +291,50 @@ export function buildSidebarStyles(addonRef: string): string {
         text-align: left;
       }
 
-      /* Stays display:flex — -empty-suggestion-text is nowrap + ellipsis, so
-         the label can never wrap and the Gecko button-height quirk cannot
-         apply here. (A grid version misaligned the row.) */
+      /* A real 3-column grid — 26px icon / fluid label / 14px chevron — so the
+         icon and the chevron of every row land on the same two vertical lines
+         regardless of how long the label is or whether it wraps.
+         This is only safe because the card is a div[role=button]: on a Gecko
+         <button> the anonymous content box does not grow for a wrapped label
+         and the text would spill outside the card's border. */
       .${addonRef}-empty-suggestion {
-        display: flex;
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr) 14px;
         align-items: center;
         gap: 10px;
         width: 100%;
         box-sizing: border-box;
-        padding: 10px 12px;
+        padding: 9px 12px;
         border: 1px solid color-mix(in srgb, var(--ra-secondary) 20%, transparent);
         border-radius: 11px;
         background: color-mix(in srgb, var(--ra-secondary) 5%, transparent);
         color: var(--ra-text);
         font-size: 12.5px;
-        line-height: 1.4;
+        line-height: 1.45;
         cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+        transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
         text-align: left;
         font-family: inherit;
       }
-      .${addonRef}-empty-suggestion:active {
-        transform: translateY(0.5px);
+
+      .${addonRef}-empty-suggestion:hover {
+        background: color-mix(in srgb, var(--ra-secondary) 14%, transparent);
+        border-color: color-mix(in srgb, var(--ra-secondary) 45%, transparent);
+        transform: translateY(-1px);
       }
-      /* Chevron only reveals on hover so the resting state stays quiet. */
+
+      .${addonRef}-empty-suggestion:active {
+        transform: translateY(0) scale(0.985);
+      }
+
+      /* Chevron only reveals on hover so the resting state stays quiet. Its
+         grid column is reserved at all times, so revealing it never reflows. */
       .${addonRef}-empty-suggestion-go {
-        flex: 0 0 auto;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         width: 14px;
         height: 14px;
-        margin-left: -2px;
         color: var(--ra-brand);
         opacity: 0;
         transform: translateX(-3px);
@@ -341,21 +345,11 @@ export function buildSidebarStyles(addonRef: string): string {
         transform: translateX(0);
       }
 
-      .${addonRef}-empty-suggestion:hover {
-        background: color-mix(in srgb, var(--ra-secondary) 14%, transparent);
-        border-color: color-mix(in srgb, var(--ra-secondary) 45%, transparent);
-      }
-
-      .${addonRef}-empty-suggestion:active {
-        transform: scale(0.98);
-      }
-
       /* A tinted chip with a stroke icon, not an emoji: the old emoji set
          (clipboard / test-tube / chart / warning) had wildly different glyph
          metrics and colours per platform, which is what made the rows look
          unaligned and visually noisy. */
       .${addonRef}-empty-suggestion-icon {
-        flex: 0 0 auto;
         width: 26px;
         height: 26px;
         display: inline-flex;
@@ -365,14 +359,20 @@ export function buildSidebarStyles(addonRef: string): string {
         background: color-mix(in srgb, var(--ra-brand) 11%, transparent);
         color: var(--ra-brand);
         line-height: 1;
+        transition: background 0.15s ease;
+      }
+      .${addonRef}-empty-suggestion:hover .${addonRef}-empty-suggestion-icon {
+        background: color-mix(in srgb, var(--ra-brand) 18%, transparent);
       }
 
+      /* Wraps instead of being ellipsised: the English strings ("Limitations
+         and directions for improvement") do not fit one line at the sidebar's
+         default width, and a clipped suggestion is worse than a two-line one.
+         Safe now that the card is a div and grows to fit. */
       .${addonRef}-empty-suggestion-text {
-        flex: 1 1 auto;
         min-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        overflow-wrap: break-word;
       }
 
       /* Quiet inline hint. As a tinted rounded box it had the same shape and

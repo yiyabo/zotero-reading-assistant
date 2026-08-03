@@ -13,6 +13,7 @@ import { getString } from "../modules/utils/locale";
 import { getPref, setPref, PrefKeys } from "../modules/utils/prefs";
 import { buildCurrentPaperContext, PaperContextResult, navigateToPDFPage } from "../modules/zotero/PDFReader";
 import { injectSharedStyles } from "../shared/design-tokens";
+import { fileLog } from "../utils/fileLog";
 import { buildSidebarStyles } from "./styles";
 import { buildEmptyState as buildEmptyStateDom } from "./EmptyState";
 import {
@@ -2170,6 +2171,11 @@ export default class SidebarView {
   private renderMessages(): void {
     if (!this.messagesContainer) return;
 
+    // replaceChildren() wipes the panel before anything replaces the content, so
+    // every path out of here must append something or report why it could not.
+    // A silently blank panel is indistinguishable from a working empty state and
+    // cost several debugging rounds; the per-message guard below keeps one bad
+    // message from taking the whole thread down with it.
     this.messagesContainer.replaceChildren();
 
     if (this.messages.length === 0) {
@@ -2179,7 +2185,14 @@ export default class SidebarView {
 
     this.messages.forEach((message, index) => {
       if (message.role === "user" || message.role === "assistant") {
-        this.appendMessage(message.role, message.content, index);
+        try {
+          this.appendMessage(message.role, message.content, index);
+        } catch (e: any) {
+          fileLog(
+            `appendMessage[${index}] role=${message.role} FAILED: ` +
+              (e?.message || e) + "\n" + (e?.stack || "(no stack)"),
+          );
+        }
       }
     });
   }

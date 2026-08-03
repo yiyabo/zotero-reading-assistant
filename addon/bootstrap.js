@@ -130,7 +130,11 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
       `${rootURI}/content/scripts/__addonRef__.js`,
       ctx
     );
-    _log("SubScript loaded");
+    // Build fingerprint. Without it, "is the running Zotero actually on my
+    // latest build?" can only be answered by comparing file mtimes against the
+    // process start time — which has already cost two debugging rounds.
+    // __buildVersion__ / __buildTime__ are substituted by scripts/build.js.
+    _log("SubScript loaded — build __buildVersion__ @ __buildTime__");
   } catch (e) {
     _log("SubScript load failed: " + e);
     return;

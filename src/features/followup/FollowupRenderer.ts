@@ -170,7 +170,7 @@ export function renderFollowupWindow(win: Window, ctx: FollowupWindowContext): v
   sendBtn.type = "button";
   sendBtn.title = t("send");
   sendBtn.setAttribute("aria-label", t("send"));
-  sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>`;
+  sendBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>`;
   sendBtn.addEventListener("click", () => {
     const text = input.value.trim();
     if (text || pendingImages.length > 0) {
