@@ -17,6 +17,42 @@
  */
 import { createHTMLElement, t } from "./domUtils";
 
+const SVG_ATTRS =
+  'viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+
+/**
+ * One stroke icon per suggestion, drawn on the same 24-unit grid so every row
+ * lines up. Emoji were inconsistent in size, weight and colour across
+ * platforms, which is what made the list look misaligned.
+ */
+const SUGGESTION_ICONS: Record<string, string> = {
+  // summary: document with lines
+  "empty-suggestion-summary":
+    '<path d="M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
+  // method: flask
+  "empty-suggestion-method":
+    '<path d="M9 3h6"/><path d="M10 3v5.5L5.5 17A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-4L14 8.5V3"/><path d="M7 15h10"/>',
+  // results: bar chart
+  "empty-suggestion-results":
+    '<path d="M4 20h16"/><path d="M7 20v-6"/><path d="M12 20V6"/><path d="M17 20v-9"/>',
+  // limitations: magnifier over a gap
+  "empty-suggestion-limitations":
+    '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/><path d="M11 8.5v3"/><path d="M11 14h.01"/>',
+};
+
+const LOGO_MARK =
+  '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>' +
+  '<path d="M13.5 4v5.5H19"/>' +
+  '<path d="M9.4 12.1l.75 1.85 1.85.75-1.85.75-.75 1.85-.75-1.85L6.8 14.7l1.85-.75z"/>' +
+  '<path d="M14.6 16.2l.45 1.1 1.1.45-1.1.45-.45 1.1-.45-1.1-1.1-.45 1.1-.45z"/>' +
+  "</svg>";
+
+const CHEVRON =
+  `<svg ${SVG_ATTRS} stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>`;
+
 export type EmptyStateOptions = {
   /** Owning document — must be the chrome document the empty state will live in. */
   doc: Document;
@@ -42,12 +78,13 @@ export function buildEmptyState(opts: EmptyStateOptions): HTMLElement {
 
   const empty = createHTMLElement(doc, "div", `${addonRef}-empty`);
 
-  // Logo: render as a text emoji rather than an <img>. This avoids any
-  // image-scaling/aspect-ratio issues entirely and reads as a friendly
-  // AI avatar regardless of platform DPI.
+  // Inline SVG on a gradient chip rather than an <img> or an emoji: no
+  // scaling/aspect-ratio issues, and it renders identically on every platform.
   const logoWrap = createHTMLElement(doc, "div", `${addonRef}-empty-logo`);
   logoWrap.setAttribute("aria-hidden", "true");
-  logoWrap.textContent = "🤖";
+  const logoMark = createHTMLElement(doc, "span", `${addonRef}-empty-logo-mark`);
+  logoMark.innerHTML = LOGO_MARK;
+  logoWrap.appendChild(logoMark);
 
   const title = createHTMLElement(doc, "h3", `${addonRef}-empty-title`);
   title.textContent = t("empty-title");
@@ -88,20 +125,22 @@ export function buildEmptyState(opts: EmptyStateOptions): HTMLElement {
   suggestionsLabel.textContent = t("empty-suggestions-label");
 
   const suggestions = createHTMLElement(doc, "div", `${addonRef}-empty-suggestions`);
-  const items: { icon: string; key: string }[] = [
-    { icon: "📋", key: "empty-suggestion-summary" },
-    { icon: "🧪", key: "empty-suggestion-method" },
-    { icon: "📊", key: "empty-suggestion-results" },
-    { icon: "⚠️", key: "empty-suggestion-limitations" },
+  const keys = [
+    "empty-suggestion-summary",
+    "empty-suggestion-method",
+    "empty-suggestion-results",
+    "empty-suggestion-limitations",
   ];
-  for (const it of items) {
+  for (const key of keys) {
     const card = createHTMLElement(doc, "button", `${addonRef}-empty-suggestion`);
     card.type = "button";
     const iconSpan = createHTMLElement(doc, "span", `${addonRef}-empty-suggestion-icon`);
-    iconSpan.textContent = it.icon;
+    iconSpan.innerHTML = `<svg ${SVG_ATTRS}>${SUGGESTION_ICONS[key] || ""}</svg>`;
     const textSpan = createHTMLElement(doc, "span", `${addonRef}-empty-suggestion-text`);
-    textSpan.textContent = t(it.key);
-    card.append(iconSpan, textSpan);
+    textSpan.textContent = t(key);
+    const goSpan = createHTMLElement(doc, "span", `${addonRef}-empty-suggestion-go`);
+    goSpan.innerHTML = CHEVRON;
+    card.append(iconSpan, textSpan, goSpan);
     card.addEventListener("click", () => onSuggestionClick(textSpan.textContent || ""));
     suggestions.appendChild(card);
   }

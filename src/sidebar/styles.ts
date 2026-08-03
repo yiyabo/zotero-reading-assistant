@@ -229,39 +229,65 @@ export function buildSidebarStyles(addonRef: string): string {
         width: 100%;
       }
 
+      /* Brand mark instead of a 🤖 emoji: emoji render at different weights
+         and colours per platform and read as placeholder art. */
       .${addonRef}-empty-logo {
         display: flex;
         justify-content: center;
         align-items: center;
-        margin: 0 0 12px;
-        font-size: 48px;
+        margin: 0 0 14px;
         line-height: 1;
-        height: 52px;
         user-select: none;
-        filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--ra-brand) 20%, transparent));
       }
+      .${addonRef}-empty-logo-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 15px;
+        background: var(--ra-gradient);
+        color: #fff;
+        box-shadow:
+          0 10px 24px color-mix(in srgb, var(--ra-brand) 30%, transparent),
+          inset 0 1px 0 rgba(255, 255, 255, 0.28);
+      }
+      .${addonRef}-empty-logo-mark svg { display: block; }
 
       .${addonRef}-empty-title {
-        margin: 0 0 6px;
+        margin: 0 0 7px;
         color: var(--ra-text);
-        font-size: 15px;
+        font-size: 15.5px;
         font-weight: 700;
         letter-spacing: 0.1px;
       }
 
       .${addonRef}-empty-desc {
-        margin: 0 0 16px;
+        margin: 0 auto 18px;
+        max-width: 30ch;
         font-size: 12px;
-        line-height: 1.55;
+        line-height: 1.6;
       }
 
+      /* Hairlines either side turn the label into a section divider so the
+         card list reads as a distinct group rather than more stacked text. */
       .${addonRef}-empty-suggestions-label {
-        margin: 4px 0 8px;
-        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 10px;
+        font-size: 10.5px;
         font-weight: 650;
-        letter-spacing: 0.4px;
+        letter-spacing: 0.5px;
         text-transform: uppercase;
-        color: color-mix(in srgb, var(--ra-text-muted) 88%, transparent);
+        color: color-mix(in srgb, var(--ra-text-muted) 80%, transparent);
+      }
+      .${addonRef}-empty-suggestions-label::before,
+      .${addonRef}-empty-suggestions-label::after {
+        content: "";
+        flex: 1 1 auto;
+        height: 1px;
+        background: color-mix(in srgb, var(--ra-text-muted) 22%, transparent);
       }
 
       .${addonRef}-empty-suggestions {
@@ -272,23 +298,19 @@ export function buildSidebarStyles(addonRef: string): string {
         text-align: left;
       }
 
-      /* grid + auto height for the same reason as -empty-setup-card: a Gecko
-         <button> centres its anonymous content box and will not grow for
-         wrapped text, so a long suggestion overflowed its own border once the
-         sidebar got narrow enough to wrap. */
+      /* Stays display:flex — -empty-suggestion-text is nowrap + ellipsis, so
+         the label can never wrap and the Gecko button-height quirk cannot
+         apply here. (A grid version misaligned the row.) */
       .${addonRef}-empty-suggestion {
-        display: grid !important;
-        grid-template-columns: auto minmax(0, 1fr);
+        display: flex;
         align-items: center;
-        column-gap: 10px;
+        gap: 10px;
         width: 100%;
-        height: auto !important;
         box-sizing: border-box;
-        white-space: normal;
-        padding: 9px 12px;
-        border: 1px solid color-mix(in srgb, var(--ra-secondary) 22%, transparent);
-        border-radius: 10px;
-        background: color-mix(in srgb, var(--ra-secondary) 6%, transparent);
+        padding: 10px 12px;
+        border: 1px solid color-mix(in srgb, var(--ra-secondary) 20%, transparent);
+        border-radius: 11px;
+        background: color-mix(in srgb, var(--ra-secondary) 5%, transparent);
         color: var(--ra-text);
         font-size: 12.5px;
         line-height: 1.4;
@@ -296,6 +318,27 @@ export function buildSidebarStyles(addonRef: string): string {
         transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
         text-align: left;
         font-family: inherit;
+      }
+      .${addonRef}-empty-suggestion:active {
+        transform: translateY(0.5px);
+      }
+      /* Chevron only reveals on hover so the resting state stays quiet. */
+      .${addonRef}-empty-suggestion-go {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        margin-left: -2px;
+        color: var(--ra-brand);
+        opacity: 0;
+        transform: translateX(-3px);
+        transition: opacity 0.15s ease, transform 0.15s ease;
+      }
+      .${addonRef}-empty-suggestion:hover .${addonRef}-empty-suggestion-go {
+        opacity: 0.85;
+        transform: translateX(0);
       }
 
       .${addonRef}-empty-suggestion:hover {
@@ -307,14 +350,20 @@ export function buildSidebarStyles(addonRef: string): string {
         transform: scale(0.98);
       }
 
+      /* A tinted chip with a stroke icon, not an emoji: the old emoji set
+         (clipboard / test-tube / chart / warning) had wildly different glyph
+         metrics and colours per platform, which is what made the rows look
+         unaligned and visually noisy. */
       .${addonRef}-empty-suggestion-icon {
         flex: 0 0 auto;
-        width: 22px;
-        height: 22px;
+        width: 26px;
+        height: 26px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 14px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--ra-brand) 11%, transparent);
+        color: var(--ra-brand);
         line-height: 1;
       }
 
@@ -326,15 +375,16 @@ export function buildSidebarStyles(addonRef: string): string {
         text-overflow: ellipsis;
       }
 
+      /* Quiet inline hint. As a tinted rounded box it had the same shape and
+         tint as the suggestion cards and read like a fifth, unclickable one. */
       .${addonRef}-empty-tip {
-        margin: 6px 0 0;
-        padding: 8px 10px;
-        font-size: 11.5px;
-        line-height: 1.5;
-        color: var(--ra-text-muted);
-        background: color-mix(in srgb, var(--ra-secondary) 5%, transparent);
-        border-radius: 8px;
-        text-align: left;
+        margin: 14px 0 0;
+        padding: 0;
+        background: transparent;
+        font-size: 11px;
+        line-height: 1.55;
+        color: color-mix(in srgb, var(--ra-text-muted) 82%, transparent);
+        text-align: center;
       }
 
       /* grid + explicit auto height, same workaround as -reference-result:
@@ -2410,8 +2460,9 @@ export function buildSidebarStyles(addonRef: string): string {
           border-color: color-mix(in srgb, var(--ra-secondary) 60%, transparent);
         }
 
-        .${addonRef}-empty-tip {
-          background: color-mix(in srgb, var(--ra-secondary) 14%, transparent);
+        .${addonRef}-empty-suggestion-icon {
+          background: color-mix(in srgb, var(--ra-brand) 24%, transparent);
+          color: color-mix(in srgb, var(--ra-brand) 55%, #fff);
         }
 
         /* Brighter placeholder so the input prompt stays readable on dark. */
