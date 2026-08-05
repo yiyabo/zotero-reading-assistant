@@ -27,14 +27,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/zotero-reading-assistant.git"
+    "url": "git+https://github.com/yiyabo/zotero-reading-assistant.git"
   },
-  "author": "Your Name",
+  "author": "Yiyabo",
   "license": "AGPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/yourusername/zotero-reading-assistant/issues"
+    "url": "https://github.com/yiyabo/zotero-reading-assistant/issues"
   },
-  "homepage": "https://github.com/yourusername/zotero-reading-assistant",
+  "homepage": "https://github.com/yiyabo/zotero-reading-assistant",
   "acknowledgments": "Based on zotero-gpt by MuiseDestiny (https://github.com/MuiseDestiny/zotero-gpt)",
   "dependencies": {
     "@dqbd/tiktoken": "^1.0.6",
